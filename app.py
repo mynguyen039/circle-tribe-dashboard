@@ -6,9 +6,9 @@ from flask import Flask, request, Response, send_file
 app = Flask(__name__)
 
 NOTION_TOKEN  = os.environ.get("NOTION_TOKEN", "")
-ANTHROPIC_KEY = os.environ.get("ANTHROPIC_KEY", "")
+GEMINI_KEY    = os.environ.get("GEMINI_KEY", "")
 NOTION_BASE   = "https://api.notion.com/v1"
-CLAUDE_URL    = "https://api.anthropic.com/v1/messages"
+GEMINI_URL    = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -22,22 +22,32 @@ def index():
     return send_file("index.html")
 
 
-@app.route("/claude", methods=["POST", "OPTIONS"])
-def claude_proxy():
+@app.route("/ai", methods=["POST", "OPTIONS"])
+def gemini_proxy():
     if request.method == "OPTIONS":
         return Response("", headers=CORS_HEADERS)
     try:
-        res = requests.post(
-            CLAUDE_URL,
-            headers={
-                "x-api-key": ANTHROPIC_KEY,
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json",
-            },
-            data=request.get_data(),
-            timeout=60,
-        )
-        return Response(res.content, status=res.status_code,
+        body = request.get_json()
+        # Convert Claude-style messages to Gemini format
+        messages = body.get("messages", [])
+        system = body.get("system", "")
+        contents = []
+        if system:
+            contents.append({"role": "user", "parts": [{"text": system}]})
+            contents.append({"role": "model", "parts": [{"text": "OK, understood."}]})
+        for m in messages:
+            role = "model" if m["role"] == "assistant" else "user"
+            contents.append({"role": role, "parts": [{"text": m["content"]}]})
+        
+        gemini_body = {"contents": contents, "generationConfig": {"maxOutputTokens": 1000}}
+        url = GEMINI_URL + "?key=" + GEMINI_KEY
+        res = requests.post(url, json=gemini_body, timeout=60)
+        
+        # Convert Gemini response to Claude-style format
+        data = res.json()
+        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        out = {"content": [{"type": "text", "text": text}]}
+        return Response(json.dumps(out), status=200,
                         headers={**CORS_HEADERS, "Content-Type": "application/json"})
     except Exception as e:
         return Response(json.dumps({"error": str(e)}), status=500,

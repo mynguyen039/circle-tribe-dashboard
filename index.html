@@ -669,12 +669,10 @@ Xem tasks: {"action":"show_tasks"}
 Trả lời tiếng Việt ngắn gọn. Nếu cần tạo task, extract thông tin từ yêu cầu và trả JSON.`;
 
   try{
-    const res = await fetch(C.proxy + '/claude',{
+    const res = await fetch(C.proxy + '/ai',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:800,
         system: SYS,
         messages: H.slice(-10)
       })
