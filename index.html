@@ -478,23 +478,18 @@ function gp(page, ...names){
 }
 
 function getTitle(p){
-  if(SCHEMA.title) return gp(p, SCHEMA.title) || 'Untitled';
-  return gp(p,'Name','Task Name','Title','Project Name') || 'Untitled';
+  return gp(p,'Task name','Name','Task Name','Title','Project Name') || 'Untitled';
 }
 function getDue(p){
-  if(SCHEMA.due) return gp(p, SCHEMA.due);
-  return gp(p,'Due Date','Deadline','due date','Date');
+  return gp(p,'Due date','Due Date','Deadline','date');
 }
 function getOwner(p){
-  if(SCHEMA.owner) return gp(p, SCHEMA.owner);
-  return gp(p,'Owner','Assignee','Assigned to','Lead','Person');
+  return gp(p,'Assignee','Owner','Assigned to','Lead','Person');
 }
 function getStatus(p){
-  if(SCHEMA.status) return gp(p, SCHEMA.status);
   return gp(p,'Status','status','State');
 }
 function getPri(p){
-  if(SCHEMA.priority) return gp(p, SCHEMA.priority);
   return gp(p,'Priority','priority','Urgent');
 }
 
@@ -513,9 +508,10 @@ function scC(s){
   if(!s || typeof s !== 'string') return '#605A52';
   const l = s.toLowerCase();
   if(l.includes('done')||l.includes('complete')||l.includes('xong')) return '#5A9E6A';
-  if(l.includes('doing')||l.includes('progress')||l.includes('dang')) return '#C8A832';
-  if(l.includes('block')||l.includes('hold')) return '#E05A3A';
-  return '#4A8AB0';
+  if(l.includes('progress')||l.includes('doing')||l.includes('dang')) return '#C8A832';
+  if(l.includes('not started')||l.includes('todo')) return '#4A8AB0';
+  if(l.includes('block')||l.includes('hold')||l.includes('past due')) return '#E05A3A';
+  return '#605A52';
 }
 function prS(pri){
   if(!pri || typeof pri !== 'string') return '';
@@ -568,7 +564,7 @@ async function loadRep(){
     pages.forEach(p => {
       const s = getStatus(p);
       const d = getDue(p);
-      const done = /done|complete|finish/i.test(s);
+      const done = /done|complete|finish|xong/i.test(s);
       if(done)          { dn.push(p); return; }
       if(d && isLate(d)){ ov.push(p); return; }
       if(d && isToday(d)){ td.push(p); return; }
