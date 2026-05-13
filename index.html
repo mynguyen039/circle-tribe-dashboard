@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Circle Tribe — Team Dashboard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#0D0D0D;--sf:#161616;--sf2:#1E1E1E;--sf3:#252525;
+    --br:#2A2A2A;--br2:#333;
+    --gd:#C8A832;--gd2:#F0D080;--gdm:#8B7220;
+    --tx:#F0EDE8;--tx2:#A0998E;--tx3:#605A52;
+    --re:#E05A3A;--gr:#5A9E6A;--bl:#4A8AB0;--ye:#C8A832;
+    --fh:'Syne',sans-serif;--fm:'DM Mono',monospace;
+  }
+  body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:13px;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+  /* TOPBAR */
+  .tb{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--sf);border-bottom:1px solid var(--br);flex-shrink:0}
+  .logo{font-family:var(--fh);font-weight:800;font-size:15px;color:var(--gd);white-space:nowrap;margin-right:4px}
+  .logo span{color:var(--tx2);font-weight:400;font-size:11px;margin-left:6px}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--tx3);flex-shrink:0;transition:all .3s}
+  .dot.on{background:var(--gr);box-shadow:0 0 6px var(--gr);animation:bk 2s infinite}
+  @keyframes bk{0%,100%{opacity:1}50%{opacity:.4}}
+  .stx{font-size:10px;color:var(--tx3);transition:color .3s;white-space:nowrap}
+  .stx.on{color:var(--gr)}
+  .spacer{flex:1}
+  .inp{background:var(--sf2);border:1px solid var(--br2);color:var(--tx);font-family:var(--fm);font-size:11px;padding:5px 10px;border-radius:4px;outline:none;width:250px}
+  .inp:focus{border-color:var(--gdm)}
+  .inp::placeholder{color:var(--tx3)}
+  .lbl{font-size:10px;color:var(--tx3);white-space:nowrap}
+  .btn{background:var(--gd);color:#000;font-family:var(--fm);font-size:11px;font-weight:500;padding:5px 14px;border:none;border-radius:4px;cursor:pointer;white-space:nowrap}
+  .btn:hover{background:var(--gd2)}
+  .btn:disabled{background:var(--sf3);color:var(--tx3);cursor:not-allowed}
+  .btno{background:transparent;color:var(--tx2);border:1px solid var(--br2);font-family:var(--fm);font-size:11px;padding:5px 12px;border-radius:4px;cursor:pointer;white-space:nowrap}
+  .btno:hover{border-color:var(--gdm);color:var(--gd)}
+
+  /* LAYOUT */
+  .main{display:flex;flex:1;overflow:hidden}
+  .sb{width:200px;background:var(--sf);border-right:1px solid var(--br);display:flex;flex-direction:column;flex-shrink:0}
+  .sl{padding:12px 14px 5px;font-size:10px;color:var(--tx3);letter-spacing:1px;text-transform:uppercase}
+  .nv{display:flex;align-items:center;gap:8px;padding:9px 14px;cursor:pointer;color:var(--tx2);font-size:12px;transition:all .12s;border-right:2px solid transparent}
+  .nv:hover{background:var(--sf2);color:var(--tx)}
+  .nv.on{background:var(--sf3);color:var(--gd);border-right-color:var(--gd)}
+  .ni{font-size:13px;width:18px;text-align:center}
+  .hr{height:1px;background:var(--br);margin:6px 0}
+  .dbg{margin:3px 12px;padding:6px 10px;background:var(--sf2);border:1px solid var(--br);border-radius:4px;font-size:10px;color:var(--tx3)}
+  .dbg.ok{border-color:#1A3A1A;color:var(--gr)}
+  .dbg .dn{color:var(--tx2);font-size:11px;display:block;margin-bottom:1px}
+  .sbot{margin-top:auto;padding:12px 14px;border-top:1px solid var(--br)}
+  .clk{font-size:22px;color:var(--gd);font-family:var(--fh);font-weight:800}
+  .ds{font-size:10px;color:var(--tx3);margin-top:2px}
+
+  /* CONTENT */
+  .ct{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+  .cv{flex:1;display:none;flex-direction:column;overflow:hidden}
+  .cv.on{display:flex}
+  .vw{flex:1;overflow-y:auto;padding:16px;display:none}
+  .vw.on{display:block}
+
+  /* CHAT */
+  .qb{padding:8px 16px 0;display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0}
+  .qbt{background:var(--sf2);border:1px solid var(--br);color:var(--tx2);font-size:10px;padding:4px 10px;border-radius:20px;cursor:pointer;font-family:var(--fm)}
+  .qbt:hover{border-color:var(--gdm);color:var(--gd)}
+  .ms{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+  .mg{display:flex;gap:10px;max-width:90%}
+  .mg.u{align-self:flex-end;flex-direction:row-reverse}
+  .av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+  .mg.ai .av{background:var(--gdm);color:var(--gd2)}
+  .mg.u .av{background:var(--sf3);color:var(--tx2)}
+  .bb{background:var(--sf2);border:1px solid var(--br);border-radius:8px;padding:10px 13px;font-size:12px;line-height:1.65;color:var(--tx);word-break:break-word}
+  .mg.u .bb{background:var(--sf3);border-color:var(--br2)}
+  .bb b{color:var(--gd2)}
+  .tg{display:inline-block;padding:1px 7px;border-radius:3px;font-size:10px;margin:2px 2px 2px 0}
+  .tg.g{background:#0E2A14;color:var(--gr)}
+  .tg.y{background:#2A2A08;color:var(--ye)}
+  .tg.b{background:#081A2A;color:var(--bl)}
+  .tdots{display:flex;gap:4px;align-items:center}
+  .tdots span{width:5px;height:5px;background:var(--tx3);border-radius:50%;animation:bb2 1.2s infinite}
+  .tdots span:nth-child(2){animation-delay:.2s}
+  .tdots span:nth-child(3){animation-delay:.4s}
+  @keyframes bb2{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+  .ir{padding:10px 16px;border-top:1px solid var(--br);background:var(--sf);display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+  .ci{flex:1;background:var(--sf2);border:1px solid var(--br2);color:var(--tx);font-family:var(--fm);font-size:12px;padding:10px 12px;border-radius:6px;resize:none;outline:none;min-height:40px;max-height:120px;line-height:1.5}
+  .ci:focus{border-color:var(--gdm)}
+  .ci::placeholder{color:var(--tx3)}
+  .bsn{background:var(--gd);color:#000;border:none;border-radius:6px;padding:10px 16px;cursor:pointer;font-family:var(--fm);font-size:12px;font-weight:500;height:40px}
+  .bsn:hover{background:var(--gd2)}
+  .bsn:disabled{background:var(--sf3);color:var(--tx3);cursor:not-allowed}
+
+  /* REPORT */
+  .vh{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .vt{font-family:var(--fh);font-size:20px;font-weight:800;color:var(--gd)}
+  .sg{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+  .sc{background:var(--sf);border:1px solid var(--br);border-radius:6px;padding:12px 14px}
+  .sv{font-family:var(--fh);font-size:26px;font-weight:800}
+  .sk{font-size:10px;color:var(--tx3);margin-top:3px;text-transform:uppercase;letter-spacing:.5px}
+  .sc.r .sv{color:var(--re)}
+  .sc.y .sv{color:var(--ye)}
+  .sc.b .sv{color:var(--bl)}
+  .sc.g .sv{color:var(--gr)}
+  .sh{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;padding-bottom:5px;border-bottom:1px solid var(--br)}
+  .tl{display:flex;flex-direction:column;gap:3px;margin-bottom:4px}
+  .rw{display:flex;align-items:center;gap:7px;padding:8px 10px;background:var(--sf);border:1px solid var(--br);border-radius:5px;font-size:11px}
+  .rw:hover{border-color:var(--br2)}
+  .rd{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+  .rn{flex:1;color:var(--tx)}
+  .ro{color:var(--tx3);font-size:10px}
+  .ru{color:var(--tx3);font-size:10px}
+  .ru.lt{color:var(--re)}
+  .em{text-align:center;padding:18px;color:var(--tx3);font-size:11px}
+
+  /* SETUP */
+  .sw{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;text-align:center;overflow-y:auto}
+  .st{font-family:var(--fh);font-size:24px;font-weight:800;color:var(--gd);margin-bottom:6px}
+  .ss{color:var(--tx2);font-size:12px;margin-bottom:20px;max-width:480px;line-height:1.7}
+  .fl{width:100%;max-width:480px;margin-bottom:10px;text-align:left}
+  .fl label{display:block;font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+  .fl input{width:100%;background:var(--sf2);border:1px solid var(--br2);color:var(--tx);font-family:var(--fm);font-size:12px;padding:10px 12px;border-radius:5px;outline:none}
+  .fl input:focus{border-color:var(--gdm)}
+  .fl input::placeholder{color:var(--tx3)}
+  .bp{background:var(--gd);color:#000;border:none;border-radius:5px;padding:12px;font-family:var(--fm);font-size:13px;font-weight:500;cursor:pointer;width:100%;max-width:480px;margin-top:6px}
+  .bp:hover{background:var(--gd2)}
+  .hn{font-size:10px;color:var(--tx3);margin-top:10px;max-width:480px;line-height:1.7;text-align:left}
+  .hn b{color:var(--tx2)}
+  .step{background:var(--sf);border:1px solid var(--br);border-radius:6px;padding:12px 14px;width:100%;max-width:480px;margin-bottom:8px;text-align:left}
+  .step-n{font-size:10px;color:var(--gd);font-weight:500;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .step-t{font-size:11px;color:var(--tx2);line-height:1.6}
+  .step-t code{background:var(--sf2);padding:1px 6px;border-radius:3px;color:var(--gd2);font-family:var(--fm);font-size:11px}
+  .divider{height:1px;background:var(--br);width:100%;max-width:480px;margin:14px 0}
+
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--br2);border-radius:2px}
+  .toast{position:fixed;bottom:18px;right:18px;background:var(--sf2);border:1px solid var(--br2);color:var(--tx);padding:9px 15px;border-radius:6px;font-size:12px;z-index:9999;transform:translateY(50px);opacity:0;transition:all .25s;pointer-events:none}
+  .toast.on{transform:translateY(0);opacity:1}
+  .toast.ok{border-color:var(--gr);color:var(--gr)}
+  .toast.er{border-color:var(--re);color:var(--re)}
+  .ld{position:absolute;inset:0;background:rgba(13,13,13,.8);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:99}
+  .ld.on{display:flex}
+  .sp{width:26px;height:26px;border:2px solid var(--br2);border-top-color:var(--gd);border-radius:50%;animation:sp2 .8s linear infinite}
+  @keyframes sp2{to{transform:rotate(360deg)}}
+  .lt{font-size:11px;color:var(--tx2)}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="tb">
+  <div class="logo">👁 CIRCLE TRIBE <span>Team Dashboard</span></div>
+  <div class="dot" id="dot"></div>
+  <span class="stx" id="stx">Chưa kết nối</span>
+  <div class="spacer"></div>
+  <span class="lbl">Proxy URL:</span>
+  <input class="inp" id="proxyInp" placeholder="https://xxx.workers.dev hoặc http://localhost:8787">
+  <span class="lbl">Token:</span>
+  <input class="inp" id="tokInp" type="password" placeholder="ntn_xxxxxxxxxxxxxxxxxxxx" style="width:200px">
+  <button class="btn" id="connBtn" onclick="topConn()">Kết nối</button>
+</div>
+
+<!-- MAIN -->
+<div class="main" id="mw" style="display:none">
+  <div class="sb">
+    <div style="padding:8px 0">
+      <div class="sl">Menu</div>
+      <div class="nv on" id="n-chat" onclick="go('chat')"><span class="ni">💬</span>AI Chat</div>
+      <div class="nv" id="n-rep" onclick="go('rep')"><span class="ni">📋</span>Daily Report</div>
+      <div class="nv" id="n-tsk" onclick="go('tsk')"><span class="ni">✅</span>All Tasks</div>
+      <div class="nv" id="n-prj" onclick="go('prj')"><span class="ni">🗂</span>Projects</div>
+    </div>
+    <div class="hr"></div>
+    <div>
+      <div class="sl">Status</div>
+      <div class="dbg ok" id="dbg1"><span class="dn">📋 Task Tracker</span>Connected</div>
+      <div class="dbg ok" id="dbg2"><span class="dn">🗂 Projects</span>Connected</div>
+    </div>
+    <div class="sbot">
+      <div class="clk" id="clk">--:--</div>
+      <div class="ds" id="dstr">--</div>
+      <div style="margin-top:6px;font-size:10px;color:var(--tx3)">⏰ Auto report: 10:00</div>
+    </div>
+  </div>
+
+  <div class="ct">
+    <!-- CHAT -->
+    <div class="cv on" id="v-chat">
+      <div class="qb">
+        <span class="qbt" onclick="qc('Báo cáo tasks hôm nay')">📋 Report hôm nay</span>
+        <span class="qbt" onclick="qc('Tạo task mới')">➕ Tạo task</span>
+        <span class="qbt" onclick="qc('Tạo project mới')">🗂 Tạo project</span>
+        <span class="qbt" onclick="qc('Tasks đang in progress')">🔄 In progress</span>
+        <span class="qbt" onclick="qc('Task nào bị trễ deadline?')">🔴 Trễ hạn</span>
+        <span class="qbt" onclick="qc('Thống kê tuần này')">📊 Thống kê</span>
+      </div>
+      <div class="ms" id="ms">
+        <div class="mg ai">
+          <div class="av">👁</div>
+          <div class="bb">
+            Xin chào team <b>Circle Tribe</b>! Kết nối Notion trực tiếp thành công.<br><br>
+            Nhắn lệnh tự nhiên:<br>
+            • <i style="color:var(--tx2)">"Tạo task làm video ads, giao Minh, deadline 20/05"</i><br>
+            • <i style="color:var(--tx2)">"Hôm nay team cần làm gì?"</i><br>
+            • <i style="color:var(--tx2)">"Tạo project Campaign T6, Khoa lead, 1/6–30/6"</i><br><br>
+            <span class="tg g">Notion API connected</span><span class="tg y">AI ready</span>
+          </div>
+        </div>
+      </div>
+      <div class="ir">
+        <textarea class="ci" id="ci" placeholder="Nhắn lệnh tự nhiên... (Enter gửi)" rows="1"></textarea>
+        <button class="bsn" id="bsn" onclick="send()">Gửi ↵</button>
+      </div>
+    </div>
+
+    <!-- REPORT -->
+    <div class="vw" id="v-rep">
+      <div class="vh">
+        <div><div class="vt">Daily Report</div><div style="font-size:11px;color:var(--tx3);margin-top:2px" id="rdt"></div></div>
+        <button class="btno" onclick="loadRep()">⟳ Refresh</button>
+      </div>
+      <div class="sg">
+        <div class="sc r"><div class="sv" id="s0">-</div><div class="sk">🔴 Trễ hạn</div></div>
+        <div class="sc y"><div class="sv" id="s1">-</div><div class="sk">🟡 Hôm nay</div></div>
+        <div class="sc b"><div class="sv" id="s2">-</div><div class="sk">🔄 Đang làm</div></div>
+        <div class="sc g"><div class="sv" id="s3">-</div><div class="sk">✅ Done</div></div>
+      </div>
+      <div class="sh">🔴 Trễ hạn — xử lý ngay</div><div class="tl" id="lo"></div>
+      <div class="sh">🟡 Due hôm nay</div><div class="tl" id="lt"></div>
+      <div class="sh">🔄 Đang làm</div><div class="tl" id="ld"></div>
+      <div class="sh">✅ Done gần đây</div><div class="tl" id="lx"></div>
+    </div>
+
+    <!-- TASKS -->
+    <div class="vw" id="v-tsk">
+      <div class="vh"><div class="vt">All Tasks</div><button class="btno" onclick="loadTsk()">⟳ Refresh</button></div>
+      <div class="tl" id="at"></div>
+    </div>
+
+    <!-- PROJECTS -->
+    <div class="vw" id="v-prj">
+      <div class="vh"><div class="vt">Projects</div><button class="btno" onclick="loadPrj()">⟳ Refresh</button></div>
+      <div class="tl" id="ap"></div>
+    </div>
+
+    <div class="ld" id="ldov"><div class="sp"></div><div class="lt" id="ltxt">Đang tải...</div></div>
+  </div>
+</div>
+
+<!-- SETUP SCREEN -->
+<div class="sw" id="setupWrap">
+  <div class="st">👁 Circle Tribe Dashboard</div>
+  <div class="ss">Notion API chặn browser requests (CORS). Cần một proxy nhỏ ở giữa. Chọn 1 trong 2 cách bên dưới:</div>
+
+  <div class="step">
+    <div class="step-n">⚡ Cách A — Cloudflare Worker (khuyến nghị)</div>
+    <div class="step-t">
+      1. Vào <b>workers.cloudflare.com</b> → đăng ký free<br>
+      2. Create Worker → xoá code mẫu → paste <b>Worker Code</b> từ hướng dẫn<br>
+      3. Deploy → copy URL dạng <code>https://xxx.workers.dev</code><br>
+      4. Paste URL vào ô Proxy URL bên dưới
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-n">🐍 Cách B — Python Local (không cần internet)</div>
+    <div class="step-t">
+      1. Lưu file <code>notion_proxy.py</code> → điền token vào<br>
+      2. Chạy: <code>python notion_proxy.py</code><br>
+      3. Proxy URL = <code>http://localhost:8787</code>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="fl"><label>Proxy URL</label><input type="text" id="sProxy" placeholder="https://xxx.workers.dev hoặc http://localhost:8787"></div>
+  <div class="fl"><label>Notion API Token</label><input type="password" id="sTok" placeholder="ntn_xxxxxxxxxxxxxxxxxxxx"></div>
+  <div class="fl"><label>Task Tracker DB ID</label><input type="text" id="sDb1" value="2e945d0772af81ed8d41ca3869edab4c"></div>
+  <div class="fl"><label>Projects DB ID</label><input type="text" id="sDb2" value="2e945d0772af8165b4daccb3ef6a0a97"></div>
+  <button class="bp" onclick="setup()">Kết nối →</button>
+  <div class="hn">DB IDs đã điền sẵn. Dữ liệu lưu trong <b>sessionStorage</b> — không gửi đi đâu ngoài Notion qua proxy của bạn.</div>
+</div>
+
+<div class="toast" id="ts"></div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────
+let C = { proxy:'', token:'', tdb:'', pdb:'', ok:false };
+
+// Auto-detect proxy URL: on Render = same origin, on localhost = user input
+const AUTO_PROXY = (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1')
+  ? window.location.origin
+  : null;
+
+// If on Render, hide proxy input and show simpler setup
+if(AUTO_PROXY) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const pi = document.querySelector('.fl input[id="sProxy"]');
+    const pl = pi?.closest('.fl');
+    if(pl) pl.style.display = 'none';
+    const pi2 = document.getElementById('proxyInp');
+    if(pi2) pi2.closest && (pi2.style.display='none');
+    const pl2 = pi2?.previousElementSibling;
+    if(pl2 && pl2.classList?.contains('lbl')) pl2.style.display='none';
+    document.querySelector('.ss') && (document.querySelector('.ss').textContent = 'Dang chay tren server. Chi can dien Notion Token va DB IDs.');
+  });
+}
+let H = []; // chat history
+const TODAY = () => new Date().toISOString().split('T')[0];
+
+// ─── CLOCK ────────────────────────────────────────────
+function tick(){
+  const n = new Date();
+  document.getElementById('clk').textContent =
+    String(n.getHours()).padStart(2,'0') + ':' + String(n.getMinutes()).padStart(2,'0');
+  const D = ['CN','T2','T3','T4','T5','T6','T7'];
+  document.getElementById('dstr').textContent =
+    D[n.getDay()] + ' ' + String(n.getDate()).padStart(2,'0') + '/' + (n.getMonth()+1);
+  document.getElementById('rdt').textContent =
+    D[n.getDay()] + ', ' + n.getDate() + '/' + (n.getMonth()+1) + '/' + n.getFullYear();
+  if(n.getHours()===10 && n.getMinutes()===0 && n.getSeconds()<6 && C.ok){
+    go('rep'); loadRep(); toast('⏰ Auto Daily Report 10:00 AM','ok');
+  }
+}
+setInterval(tick,1000); tick();
+
+window.onload = () => {
+  const s = sessionStorage.getItem('ct3');
+  if(s){ try{ C = JSON.parse(s); if(C.ok) boot(); }catch(e){} }
+};
+
+// ─── SETUP ────────────────────────────────────────────
+function setup(){
+  const proxy = AUTO_PROXY || document.getElementById('sProxy').value.trim().replace(/\/$/,'');
+  const token = document.getElementById('sTok').value.trim();
+  const db1   = document.getElementById('sDb1').value.trim().replace(/-/g,'');
+  const db2   = document.getElementById('sDb2').value.trim().replace(/-/g,'');
+  if(!proxy){ toast('Cần Proxy URL','er'); return; }
+  if(!token){ toast('Cần Notion Token','er'); return; }
+  if(!db1)  { toast('Cần Task DB ID','er'); return; }
+  C = { proxy, token, tdb:db1, pdb:db2, ok:true };
+  sessionStorage.setItem('ct3', JSON.stringify(C));
+  boot(); testConn();
+}
+
+function topConn(){
+  const proxy = AUTO_PROXY || document.getElementById('proxyInp').value.trim().replace(/\/$/,'');
+  const token = document.getElementById('tokInp').value.trim();
+  if(!proxy || !token){ toast('Cần cả Proxy URL và Token','er'); return; }
+  C.proxy = proxy; C.token = token;
+  if(!C.tdb) C.tdb = '2e945d0772af81ed8d41ca3869edab4c';
+  if(!C.pdb) C.pdb = '2e945d0772af8165b4daccb3ef6a0a97';
+  C.ok = true;
+  sessionStorage.setItem('ct3', JSON.stringify(C));
+  boot(); testConn();
+}
+
+function boot(){
+  document.getElementById('setupWrap').style.display = 'none';
+  document.getElementById('mw').style.display = 'flex';
+}
+
+async function testConn(){
+  showLd('Testing Notion connection...');
+  try{
+    const r = await nGet('/users/me');
+    if(r.object){
+      document.getElementById('dot').className = 'dot on';
+      document.getElementById('stx').textContent = 'Notion connected';
+      document.getElementById('stx').className = 'stx on';
+      document.getElementById('connBtn').textContent = 'OK';
+      document.getElementById('connBtn').disabled = true;
+      toast('Ket noi Notion thanh cong!','ok');
+      await detectSchema();
+      loadRep();
+    }
+  }catch(e){
+    toast('Ket noi that bai: ' + e.message,'er');
+    document.getElementById('stx').textContent = 'Loi ket noi';
+  }
+  hideLd();
+}
+
+let SCHEMA = {};
+async function detectSchema(){
+  try{
+    const info = await nGet('/databases/' + C.tdb);
+    const props = info.properties || {};
+    SCHEMA = {};
+    const names = Object.keys(props);
+    console.log('=== TASK DB PROPERTIES ===');
+    names.forEach(n => console.log('  ' + props[n].type + '  ->  ' + n));
+    for(const n of names){
+      const t = props[n].type;
+      if(t === 'title')  SCHEMA.title  = SCHEMA.title  || n;
+      if(t === 'select' || t === 'status') SCHEMA.status = SCHEMA.status || n;
+      if(t === 'date')   SCHEMA.due    = SCHEMA.due    || n;
+      if(t === 'people') SCHEMA.owner  = SCHEMA.owner  || n;
+      if((t === 'select') && n.toLowerCase().includes('prior')) SCHEMA.priority = n;
+    }
+    console.log('=== MAPPED ===', JSON.stringify(SCHEMA));
+    const badge = document.getElementById('dbg1');
+    if(badge) badge.innerHTML = '<span class="dn">Task Tracker</span>' + names.length + ' fields';
+  }catch(e){
+    console.warn('Schema detect failed:', e.message);
+  }
+}
+
+// ─── NOTION API (qua proxy) ───────────────────────────
+async function nGet(path){
+  const r = await fetch(C.proxy + path, {
+    headers:{
+      'Authorization': 'Bearer ' + C.token,
+      'Notion-Version': '2022-06-28'
+    }
+  });
+  if(!r.ok){ const e=await r.json(); throw new Error(e.message||'Error '+r.status); }
+  return r.json();
+}
+
+async function nPost(path, body){
+  const r = await fetch(C.proxy + path, {
+    method: 'POST',
+    headers:{
+      'Authorization': 'Bearer ' + C.token,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){ const e=await r.json(); throw new Error(e.message||'Error '+r.status); }
+  return r.json();
+}
+
+async function nPatch(path, body){
+  const r = await fetch(C.proxy + path, {
+    method: 'PATCH',
+    headers:{
+      'Authorization': 'Bearer ' + C.token,
+      'Notion-Version': '2022-06-28',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){ const e=await r.json(); throw new Error(e.message||'Error '+r.status); }
+  return r.json();
+}
+
+async function queryDb(dbId, filter, sorts){
+  const body = {};
+  if(filter) body.filter = filter;
+  if(sorts)  body.sorts  = sorts;
+  return nPost('/databases/' + dbId + '/query', body);
+}
+
+async function createPage(dbId, props){
+  return nPost('/pages', { parent:{database_id:dbId}, properties:props });
+}
+
+// ─── PROP HELPERS ─────────────────────────────────────
+function gp(page, ...names){
+  for(const n of names){
+    const p = page.properties?.[n];
+    if(!p) continue;
+    switch(p.type){
+      case 'title':      return p.title?.map(t=>t.plain_text).join('') || '';
+      case 'rich_text':  return p.rich_text?.map(t=>t.plain_text).join('') || '';
+      case 'select':     return p.select?.name || '';
+      case 'status':     return p.status?.name || '';
+      case 'date':       return p.date?.start || '';
+      case 'people':     return p.people?.map(u=>u.name||'').join(', ') || '';
+      case 'number':     return String(p.number ?? '');
+      case 'checkbox':   return p.checkbox ? 'Yes' : 'No';
+      case 'multi_select': return p.multi_select?.map(s=>s.name).join(', ') || '';
+    }
+  }
+  return '';
+}
+
+function getTitle(p){
+  if(SCHEMA.title) return gp(p, SCHEMA.title) || 'Untitled';
+  return gp(p,'Name','Task Name','Title','Project Name') || 'Untitled';
+}
+function getDue(p){
+  if(SCHEMA.due) return gp(p, SCHEMA.due);
+  return gp(p,'Due Date','Deadline','due date','Date');
+}
+function getOwner(p){
+  if(SCHEMA.owner) return gp(p, SCHEMA.owner);
+  return gp(p,'Owner','Assignee','Assigned to','Lead','Person');
+}
+function getStatus(p){
+  if(SCHEMA.status) return gp(p, SCHEMA.status);
+  return gp(p,'Status','status','State');
+}
+function getPri(p){
+  if(SCHEMA.priority) return gp(p, SCHEMA.priority);
+  return gp(p,'Priority','priority','Urgent');
+}
+
+function isLate(d){ return d && new Date(d).setHours(0,0,0,0) < new Date().setHours(0,0,0,0); }
+function isToday(d){ return d && new Date(d).setHours(0,0,0,0) === new Date().setHours(0,0,0,0); }
+function fmtD(d){
+  if(!d) return '';
+  if(isLate(d)){
+    const diff = Math.round((new Date().setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / 864e5);
+    return 'trễ ' + diff + 'd';
+  }
+  if(isToday(d)) return 'hôm nay';
+  return d;
+}
+function scC(s){
+  if(!s || typeof s !== 'string') return '#605A52';
+  const l = s.toLowerCase();
+  if(l.includes('done')||l.includes('complete')||l.includes('xong')) return '#5A9E6A';
+  if(l.includes('doing')||l.includes('progress')||l.includes('dang')) return '#C8A832';
+  if(l.includes('block')||l.includes('hold')) return '#E05A3A';
+  return '#4A8AB0';
+}
+function prS(pri){
+  if(!pri || typeof pri !== 'string') return '';
+  const l = pri.toLowerCase();
+  if(l.includes('high')||l.includes('urgent')||l.includes('cao')) return 'background:#2A0A08;color:#E05A3A';
+  if(l.includes('mid')||l.includes('med')||l.includes('trung')) return 'background:#2A2A08;color:#C8A832';
+  return 'background:#082A0E;color:#5A9E6A';
+}
+
+function mkRow(page){
+  const nm = getTitle(page);
+  const ow = getOwner(page);
+  const du = getDue(page);
+  const st = getStatus(page);
+  const pr = getPri(page);
+  const lt = isLate(du);
+  return `<div class="rw">
+    <div class="rd" style="background:${scC(st)}"></div>
+    <div class="rn">${nm}</div>
+    ${ow ? `<div class="ro">@${ow}</div>` : ''}
+    ${pr ? `<span style="font-size:9px;padding:1px 5px;border-radius:2px;${prS(pr)}">${pr}</span>` : ''}
+    <div class="ru ${lt?'lt':''}">${fmtD(du)}</div>
+  </div>`;
+}
+
+function setList(id, pages, empty){
+  const el = document.getElementById(id);
+  if(!pages?.length){ el.innerHTML = `<div class="em">${empty}</div>`; return; }
+  el.innerHTML = pages.map(mkRow).join('');
+}
+
+// ─── VIEWS ────────────────────────────────────────────
+function go(v){
+  document.querySelectorAll('.cv,.vw').forEach(e=>e.classList.remove('on'));
+  document.querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
+  document.getElementById('v-'+v)?.classList.add('on');
+  document.getElementById('n-'+v)?.classList.add('on');
+  if(v==='rep') loadRep();
+  if(v==='tsk') loadTsk();
+  if(v==='prj') loadPrj();
+}
+
+async function loadRep(){
+  if(!C.ok) return;
+  showLd('Đang tải report...');
+  try{
+    const data = await queryDb(C.tdb, null, null);
+    const pages = data.results || [];
+    let ov=[], td=[], dg=[], dn=[];
+    pages.forEach(p => {
+      const s = getStatus(p);
+      const d = getDue(p);
+      const done = /done|complete|finish/i.test(s);
+      if(done)          { dn.push(p); return; }
+      if(d && isLate(d)){ ov.push(p); return; }
+      if(d && isToday(d)){ td.push(p); return; }
+      dg.push(p);
+    });
+    document.getElementById('s0').textContent = ov.length;
+    document.getElementById('s1').textContent = td.length;
+    document.getElementById('s2').textContent = dg.length;
+    document.getElementById('s3').textContent = dn.length;
+    setList('lo', ov, '✓ Không có task trễ');
+    setList('lt', td, 'Không có task due hôm nay');
+    setList('ld', dg, 'Chưa có task đang làm');
+    setList('lx', dn.slice(0,5), 'Chưa có');
+  }catch(e){ toast('Lỗi: '+e.message,'er'); }
+  hideLd();
+}
+
+async function loadTsk(){
+  if(!C.ok) return;
+  showLd('Đang tải tasks...');
+  try{
+    const d = await queryDb(C.tdb, null, null);
+    setList('at', d.results||[], 'Chưa có task nào');
+  }catch(e){ toast('Lỗi: '+e.message,'er'); }
+  hideLd();
+}
+
+async function loadPrj(){
+  if(!C.ok || !C.pdb) return;
+  showLd('Đang tải projects...');
+  try{
+    const d = await queryDb(C.pdb);
+    setList('ap', d.results||[], 'Chưa có project nào');
+  }catch(e){ toast('Lỗi: '+e.message,'er'); }
+  hideLd();
+}
+
+// ─── CHAT + AI ────────────────────────────────────────
+function qc(t){ document.getElementById('ci').value = t; send(); }
+
+document.addEventListener('keydown', e => {
+  const ci = document.getElementById('ci');
+  if(document.activeElement===ci && e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+});
+
+function addM(role, html){
+  const el = document.getElementById('ms');
+  const d = document.createElement('div');
+  d.className = 'mg ' + role;
+  d.innerHTML = `<div class="av">${role==='ai'?'👁':'👤'}</div><div class="bb">${html}</div>`;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+function addTyp(){
+  const el = document.getElementById('ms');
+  const d = document.createElement('div');
+  d.className='mg ai'; d.id='typ';
+  d.innerHTML=`<div class="av">👁</div><div class="bb"><div class="tdots"><span></span><span></span><span></span></div></div>`;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+}
+
+// Get prop names from actual DB schema
+let TASK_TITLE_KEY = 'Name'; // will be detected
+
+async function detectSchema(){
+  try{
+    const info = await nGet('/databases/' + C.tdb);
+    const props = Object.keys(info.properties || {});
+    // Find title property
+    for(const k of props){
+      if(info.properties[k].type === 'title'){ TASK_TITLE_KEY = k; break; }
+    }
+  }catch(e){ console.log('Schema detect failed:', e); }
+}
+
+async function send(){
+  const ci = document.getElementById('ci');
+  const txt = ci.value.trim();
+  if(!txt) return;
+  if(!C.ok){ toast('Chưa kết nối Notion','er'); return; }
+  ci.value = '';
+  document.getElementById('bsn').disabled = true;
+  addM('u', txt);
+  H.push({ role:'user', content:txt });
+  addTyp();
+
+  const SYS = `Bạn là AI assistant quản lý công việc team game dev 4 người (Circle Tribe Idle).
+Bạn có thể đọc dữ liệu Notion đã được fetch và tạo/cập nhật tasks.
+Task Tracker DB ID: ${C.tdb}
+Projects DB ID: ${C.pdb}
+Hôm nay: ${TODAY()}
+
+Khi user yêu cầu tạo task, trả về JSON trong \`\`\`json...\`\`\`:
+Tạo task: {"action":"create_task","name":"...","owner":"...","due":"YYYY-MM-DD","status":"Todo","priority":"High/Mid/Low"}
+Tạo project: {"action":"create_project","name":"...","lead":"...","start":"YYYY-MM-DD","end":"YYYY-MM-DD"}
+Xem report: {"action":"show_report"}
+Xem tasks: {"action":"show_tasks"}
+
+Trả lời tiếng Việt ngắn gọn. Nếu cần tạo task, extract thông tin từ yêu cầu và trả JSON.`;
+
+  try{
+    const res = await fetch(C.proxy + '/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:800,
+        system: SYS,
+        messages: H.slice(-10)
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'Không có phản hồi';
+    document.getElementById('typ')?.remove();
+    H.push({ role:'assistant', content:reply });
+
+    // Parse action
+    const jm = reply.match(/```json\s*([\s\S]*?)```/);
+    const display = reply.replace(/```json[\s\S]*?```/g,'').trim();
+
+    if(jm){
+      try{
+        const act = JSON.parse(jm[1]);
+        await execAction(act);
+      }catch(e){ console.error('Action error:', e); }
+    }
+
+    addM('ai', (display || '✓').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
+  }catch(e){
+    document.getElementById('typ')?.remove();
+    addM('ai', '❌ Lỗi: ' + e.message);
+  }
+  document.getElementById('bsn').disabled = false;
+}
+
+async function execAction(act){
+  if(act.action === 'create_task'){
+    try{
+      const props = {};
+      props[TASK_TITLE_KEY] = { title:[{text:{content: act.name||'New Task'}}] };
+      if(act.status)   props['Status']   = { select:{name:act.status} };
+      if(act.priority) props['Priority'] = { select:{name:act.priority} };
+      if(act.due)      props['Due Date'] = { date:{start:act.due} };
+      await createPage(C.tdb, props);
+      toast('✅ Đã tạo task: ' + act.name, 'ok');
+      if(document.getElementById('v-rep').classList.contains('on')) loadRep();
+    }catch(e){
+      // Try alternate key
+      try{
+        const p2 = { 'Task Name':{title:[{text:{content:act.name||'New Task'}}]} };
+        if(act.status) p2['Status'] = {select:{name:act.status}};
+        if(act.due)    p2['Due Date'] = {date:{start:act.due}};
+        await createPage(C.tdb, p2);
+        toast('✅ Đã tạo task: ' + act.name, 'ok');
+      }catch(e2){ toast('Lỗi tạo task: '+e2.message,'er'); }
+    }
+  }
+  if(act.action === 'create_project' && C.pdb){
+    try{
+      const props = { 'Name':{title:[{text:{content:act.name||'New Project'}}]} };
+      if(act.start||act.end) props['Timeline'] = {date:{start:act.start||act.end, end:act.end||null}};
+      await createPage(C.pdb, props);
+      toast('✅ Đã tạo project: ' + act.name, 'ok');
+    }catch(e){ toast('Lỗi tạo project: '+e.message,'er'); }
+  }
+  if(act.action === 'show_report'){ go('rep'); }
+  if(act.action === 'show_tasks') { go('tsk'); loadTsk(); }
+}
+
+// ─── LOADER & TOAST ───────────────────────────────────
+function showLd(t){
+  document.getElementById('ldov').className = 'ld on';
+  document.getElementById('ltxt').textContent = t;
+}
+function hideLd(){ document.getElementById('ldov').className = 'ld'; }
+function toast(msg, type=''){
+  const t = document.getElementById('ts');
+  t.textContent = msg; t.className = 'toast on ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>
