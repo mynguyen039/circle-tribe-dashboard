@@ -110,7 +110,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
 .sticky{background:var(--sf2);border:1px solid var(--br2);border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:7px;border-top:3px solid var(--bl);transition:transform .15s,box-shadow .15s}
 .sticky:hover{transform:translateY(-2px);box-shadow:0 4px 16px #0006}
 .sticky.sd{border-top-color:var(--gr);opacity:.75}
-.sticky.sp{border-top-color:var(--ye)}
+.sticky.sinp{border-top-color:var(--ye)}
 .sticky.sb2{border-top-color:var(--re)}
 .sticky.sn{border-top-color:var(--bl)}
 .s-title{font-size:var(--fsz);font-weight:700;color:var(--tx);line-height:1.4;font-family:var(--fh)}
@@ -471,7 +471,7 @@ function scC(s){
 function stCls(s){
   const l=(s||'').toLowerCase();
   if(l.includes('done')||l.includes('complete'))return'sd';
-  if(l.includes('progress'))return'sp';
+  if(l.includes('progress'))return'sinp';
   if(l.includes('block'))return'sb2';
   return'sn';
 }

@@ -8,7 +8,7 @@ app = Flask(__name__)
 NOTION_TOKEN  = os.environ.get("NOTION_TOKEN", "")
 GEMINI_KEY    = os.environ.get("GEMINI_KEY", "")
 NOTION_BASE   = "https://api.notion.com/v1"
-GEMINI_URL    = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+GEMINI_URL    = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
