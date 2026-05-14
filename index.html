@@ -910,21 +910,24 @@ async function openDetail(e, pid){
 }
 
 async function fetchSubTasks(pid){
+  // Try parent item relation first
   try{
     const data = await nPost('/databases/'+C.tdb+'/query',{
       filter:{property:'Parent item',relation:{contains:pid}}
     });
-    return data.results||[];
-  }catch(e){
-    try{
-      const blocks = await nGet('/blocks/'+pid+'/children');
-      return (blocks.results||[]).filter(b=>b.type==='child_page').map(b=>({
-        id:b.id,
-        properties:{[TTL_KEY]:{type:'title',title:[{plain_text:b.child_page?.title||'Subtask'}]}},
-        created_time:b.created_time||''
-      }));
-    }catch(e2){return [];}
-  }
+    if(data.results?.length) return data.results;
+  }catch(e){}
+  // Fallback: child blocks
+  try{
+    const blocks = await nGet('/blocks/'+pid+'/children');
+    const kids = (blocks.results||[]).filter(b=>b.type==='child_page');
+    if(kids.length) return kids.map(b=>({
+      id:b.id,
+      properties:{[TTL_KEY]:{type:'title',title:[{plain_text:b.child_page?.title||'Subtask'}]}},
+      created_time:b.created_time||''
+    }));
+  }catch(e){}
+  return [];
 }
 
 function renderDetail(page, blocks, subs){

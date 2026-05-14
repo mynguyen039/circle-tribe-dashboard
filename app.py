@@ -8,7 +8,7 @@ app = Flask(__name__)
 NOTION_TOKEN  = os.environ.get("NOTION_TOKEN", "")
 GEMINI_KEY    = os.environ.get("GEMINI_KEY", "")
 NOTION_BASE   = "https://api.notion.com/v1"
-GEMINI_URL    = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent"
+GEMINI_URL    = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 CORS_HEADERS = {
     "Access-Control-Allow-Origin": "*",
@@ -52,14 +52,26 @@ def gemini_proxy():
             "contents": contents,
             "generationConfig": {"maxOutputTokens": 1500, "temperature": 0.7}
         }
-        url = GEMINI_URL + "?key=" + GEMINI_KEY
-        res = requests.post(url, json=gemini_body, timeout=60)
-        data = res.json()
-        
-        # Log for debugging
-        print("Gemini status:", res.status_code)
+
+        # Try multiple models as fallback
+        MODELS = [
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
+        ]
+
+        res = None
+        data = None
+        for model_url in MODELS:
+            url = model_url + "?key=" + GEMINI_KEY
+            res = requests.post(url, json=gemini_body, timeout=60)
+            data = res.json()
+            print("Trying model:", model_url.split("models/")[1].split(":")[0], "->", res.status_code)
+            if res.status_code == 200:
+                break
+
         if res.status_code != 200:
-            print("Gemini error:", json.dumps(data)[:500])
+            print("All models failed:", json.dumps(data)[:300])
             err_msg = data.get("error", {}).get("message", "Gemini API error " + str(res.status_code))
             out = {"content": [{"type": "text", "text": "Loi Gemini: " + err_msg}]}
             return Response(json.dumps(out), status=200, headers={**CORS_HEADERS, "Content-Type": "application/json"})
