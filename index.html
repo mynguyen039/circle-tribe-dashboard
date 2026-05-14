@@ -836,8 +836,7 @@ function buildTaskContext(){
   return tasks.slice(0,80).map(p=>{
     const nm=gTitle(p),ow=gOwner(p),du=gDue(p),st=gStatus(p),pri=gp(p,'Priority','priority');
     return `- "${nm}" | owner:${ow||'?'} | status:${st||'?'} | due:${du||'none'} | priority:${pri||'none'}`;
-  }).join('
-');
+  }).join('\n');
 }
 
 function buildProjContext(){
@@ -845,8 +844,7 @@ function buildProjContext(){
   return ALL_PRJ.slice(0,30).map(p=>{
     const nm=gTitle(p),ow=gOwner(p),du=gDue(p),st=gStatus(p);
     return `- "${nm}" | lead:${ow||'?'} | status:${st||'?'} | end:${du||'none'}`;
-  }).join('
-');
+  }).join('\n');
 }
 
 async function send(){
