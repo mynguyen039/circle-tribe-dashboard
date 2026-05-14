@@ -191,32 +191,33 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
 .hn{font-size:11px;color:var(--tx3);margin-top:9px;max-width:460px;line-height:1.6}
 .wn{color:var(--re);font-size:12px;margin-top:5px;max-width:460px;line-height:1.5;background:#1A0808;padding:8px 11px;border-radius:4px;border:1px solid #3A1010}
 /* DETAIL PANEL */
-.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;backdrop-filter:blur(2px)}
-.detail-overlay.open{display:block}
-.detail-panel{position:fixed;top:0;right:0;width:480px;height:100vh;background:var(--sf);border-left:1px solid var(--br2);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease}
+.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:none;backdrop-filter:blur(3px)}
+.detail-overlay.open{display:flex}
+.detail-panel{position:fixed;top:0;right:0;width:460px;height:100vh;background:#181818;border-left:2px solid var(--br2);z-index:201;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);box-shadow:-8px 0 32px rgba(0,0,0,.6)}
 .detail-panel.open{transform:translateX(0)}
-.dp-head{padding:16px 18px;border-bottom:1px solid var(--br);display:flex;align-items:flex-start;gap:10px;flex-shrink:0}
-.dp-title{flex:1;font-family:var(--fh);font-size:17px;font-weight:700;color:var(--tx);line-height:1.4;word-break:break-word}
-.dp-close{background:transparent;border:none;color:var(--tx3);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;flex-shrink:0}
-.dp-close:hover{color:var(--tx)}
-.dp-body{flex:1;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:14px}
-.dp-row{display:flex;flex-direction:column;gap:4px}
-.dp-lbl{font-size:10px;color:var(--gd);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.dp-head{padding:16px 18px;border-bottom:1px solid var(--br2);display:flex;align-items:flex-start;gap:10px;flex-shrink:0;background:#1E1E1E}
+.dp-title{flex:1;font-family:var(--fh);font-size:16px;font-weight:700;color:var(--tx);line-height:1.4;word-break:break-word}
+.dp-close{background:var(--sf3);border:1px solid var(--br2);color:var(--tx2);font-size:14px;cursor:pointer;padding:4px 8px;border-radius:4px;line-height:1;flex-shrink:0}
+.dp-close:hover{background:var(--re);color:#fff;border-color:var(--re)}
+.dp-body{flex:1;overflow-y:auto;padding:14px 18px;display:flex;flex-direction:column;gap:12px}
+.dp-row{display:flex;flex-direction:column;gap:3px}
+.dp-lbl{font-size:10px;color:var(--tx3);text-transform:uppercase;letter-spacing:.6px;font-weight:500}
 .dp-val{font-size:14px;color:var(--tx);line-height:1.5}
-.dp-val.muted{color:var(--tx3)}
+.dp-val.muted{color:var(--tx3);font-size:12px}
 .dp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.dp-desc{background:var(--sf2);border:1px solid var(--br);border-radius:6px;padding:12px;font-size:13px;color:var(--tx2);line-height:1.7;min-height:80px;white-space:pre-wrap;word-break:break-word}
+.dp-desc{background:var(--sf3);border:1px solid var(--br);border-radius:5px;padding:11px;font-size:13px;color:var(--tx2);line-height:1.7;min-height:72px;white-space:pre-wrap;word-break:break-word}
 .dp-desc.empty{color:var(--tx3);font-style:italic}
 .dp-divider{height:1px;background:var(--br);margin:2px 0}
-.dp-sub-title{font-size:11px;color:var(--gd);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:6px}
-.dp-sub-list{display:flex;flex-direction:column;gap:4px}
-.dp-sub-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--sf2);border:1px solid var(--br);border-radius:5px;font-size:13px}
+.dp-sub-title{font-size:11px;color:var(--tx2);text-transform:uppercase;letter-spacing:.6px;font-weight:500;margin-bottom:5px}
+.dp-sub-list{display:flex;flex-direction:column;gap:3px}
+.dp-sub-item{display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--sf3);border:1px solid var(--br);border-radius:5px;font-size:13px;cursor:pointer}
+.dp-sub-item:hover{border-color:var(--br2);background:#2A2A2A}
 .dp-sub-item .rd{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .dp-sub-name{flex:1;color:var(--tx)}
 .dp-sub-st{font-size:11px;color:var(--tx3)}
-.dp-foot{padding:12px 18px;border-top:1px solid var(--br);flex-shrink:0;display:flex;gap:8px}
-.dp-btn-add{flex:1;background:var(--sf2);border:1px solid var(--br2);color:var(--tx2);font-family:var(--fm);font-size:12px;padding:8px;border-radius:5px;cursor:pointer;text-align:center}
-.dp-btn-add:hover{border-color:var(--gdm);color:var(--gd)}
+.dp-foot{padding:10px 18px;border-top:1px solid var(--br);flex-shrink:0;display:flex;gap:8px;background:#1A1A1A}
+.dp-btn-add{flex:1;background:transparent;border:1px dashed var(--br2);color:var(--tx3);font-family:var(--fm);font-size:12px;padding:7px;border-radius:5px;cursor:pointer;text-align:center}
+.dp-btn-add:hover{border-color:var(--gr);color:var(--gr)}
 
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
@@ -623,7 +624,7 @@ function mkSticky(page){
   const nm=gTitle(page),ow=gOwner(page),du=gDue(page),st=gStatus(page),cb=gCreatedBy(page),ct=gCreatedAt(page);
   const isDone2=/done|complete/i.test(st);
   const lt=!isDone2&&isLate(du),td=!isDone2&&isTdy(du);
-  return`<div class="sticky ${stCls(st)}">
+  return`<div class="sticky ${stCls(st)}" onclick="openDetail(event,'${pid}')">
     <div class="s-title">${nm}</div>
     <div class="s-row">
       <span class="s-lbl">Assignee</span>
@@ -834,8 +835,9 @@ Task DB: ${C.tdb}, Projects DB: ${C.pdb}, Hôm nay: ${TODAY()}
 Khi tạo task/project, trả JSON trong \`\`\`json...\`\`\`:
 Tạo task: {"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started"}
 Tạo project: {"action":"create_project","name":"...","end":"YYYY-MM-DD"}
-Xem report: {"action":"show_report"}
-Trả lời tiếng Việt ngắn gọn.`;
+Trả lời tiếng Việt ngắn gọn. QUAN TRỌNG: Luôn trả lời đầy đủ bằng text trong chat.
+Nếu hỏi về tasks/report, hãy trả lời bằng text mô tả kết quả, KHÔNG dùng action show_report.
+Chỉ dùng JSON action khi cần tạo task/project mới.`;
   try{
     const res=await fetch(C.proxy+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:SYS,messages:H.slice(-10)})});
     const raw=await res.json();
@@ -846,7 +848,8 @@ Trả lời tiếng Việt ngắn gọn.`;
     const jm=reply.match(/```json\s*([\s\S]*?)```/);
     const disp=reply.replace(/```json[\s\S]*?```/g,'').trim();
     if(jm){try{await execAct(JSON.parse(jm[1]));}catch(e){}}
-    addM('ai',(disp||'✓').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
+    const finalText = disp || reply.replace(/```json[\s\S]*?```/g,'').trim() || '✓';
+    addM('ai',finalText.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
   }catch(e){document.getElementById('typ')?.remove();addM('ai','❌ '+e.message);}
   document.getElementById('bsn').disabled=false;
 }
@@ -869,7 +872,7 @@ async function execAct(act){
       toast('✅ Tạo project: '+act.name,'ok');
     }catch(e){toast('Lỗi: '+e.message,'er');}
   }
-  if(act.action==='show_report')go('rep');
+  // don't auto-navigate, let AI respond in chat
 }
 // ─── DETAIL PANEL ────────────────────────────────────
 let CURRENT_PAGE = null;
