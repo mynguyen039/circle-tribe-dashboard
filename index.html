@@ -867,23 +867,19 @@ async function send(){
   const taskCtx = buildTaskContext();
   const projCtx = buildProjContext();
 
-  const SYS=`Bạn là AI assistant quản lý công việc team game dev Circle Tribe Idle (4 người).
-Hôm nay: ${TODAY()}
-
-DỮ LIỆU TASKS THỰC TẾ TỪ NOTION:
-${taskCtx}
-
-${projCtx ? 'DỮ LIỆU PROJECTS:
-'+projCtx : ''}
-
-KHI TẠO TASK/PROJECT MỚI, trả JSON dạng sau:
-Tạo task: {"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started"}
-Tạo project: {"action":"create_project","name":"...","end":"YYYY-MM-DD"}
-
-LUÔN trả lời bằng text đầy đủ trong chat bằng tiếng Việt.
-Khi hỏi về tasks của ai đó, lọc từ dữ liệu thực tế bên trên và liệt kê rõ ràng.
-Khi hỏi report/thống kê, tính toán từ dữ liệu thực tế và trình bày trong chat.
-Chỉ dùng JSON action khi người dùng yêu cầu TẠO task/project mới.`;
+  const projLine = projCtx ? ('PROJECTS:\n' + projCtx + '\n\n') : '';
+  const SYS = 'Ban la AI assistant quan ly cong viec team game dev Circle Tribe Idle (4 nguoi).\n' +
+    'Hom nay: ' + TODAY() + '\n\n' +
+    'DU LIEU TASKS THUC TE TU NOTION:\n' +
+    taskCtx + '\n\n' +
+    projLine +
+    'KHI TAO TASK/PROJECT MOI, tra JSON dang sau:\n' +
+    '{"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started"}\n' +
+    '{"action":"create_project","name":"...","end":"YYYY-MM-DD"}\n\n' +
+    'LUON tra loi bang text day du trong chat bang tieng Viet.\n' +
+    'Khi hoi ve tasks cua ai do, loc tu du lieu thuc te va liet ke ro rang.\n' +
+    'Khi hoi report/thong ke, tinh toan tu du lieu thuc te va trinh bay trong chat.\n' +
+    'Chi dung JSON action khi nguoi dung yeu cau TAO task/project moi.';
   try{
     const res=await fetch(C.proxy+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:SYS,messages:H.slice(-10)})});
     const raw=await res.json();
