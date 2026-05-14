@@ -773,8 +773,14 @@ async function loadRep(){
     document.getElementById('s-all').textContent=ALL_REP.length;
     // Default: show In Progress
     REP_FILTER='progress';
+    // Reset active cards first
+    ['card-prog','card-todo','card-done','card-all'].forEach(id=>{
+      const c=document.getElementById(id);
+      if(c)c.className=c.className.replace(' active-card','');
+    });
     filterRep('progress');
-    document.getElementById('card-prog').className+=' active-card';
+    const cp=document.getElementById('card-prog');
+    if(cp)cp.className+=' active-card';
   }catch(e){toast('Lỗi: '+e.message,'er');}
   hideLd();
 }
@@ -872,7 +878,7 @@ ${taskCtx}
 ${projCtx ? 'DỮ LIỆU PROJECTS:
 '+projCtx : ''}
 
-KHI TẠO TASK/PROJECT MỚI, trả JSON trong \\`\\`\\`json...\\`\\`\\`:
+KHI TẠO TASK/PROJECT MỚI, trả JSON dạng sau:
 Tạo task: {"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started"}
 Tạo project: {"action":"create_project","name":"...","end":"YYYY-MM-DD"}
 

@@ -7,5 +7,5 @@ services:
     envVars:
       - key: NOTION_TOKEN
         sync: false
-      - key: ANTHROPIC_KEY
+      - key: GEMINI_KEY
         sync: false
