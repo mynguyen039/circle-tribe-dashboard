@@ -981,7 +981,7 @@ async function send(){
     if(jm){try{
       const act=JSON.parse(jm[1]);
       await execAct(act, (html)=>{ extraHtml=html; });
-    }catch(e){}}catch(e){}}
+    }catch(e){}}
     const finalText = disp || reply.replace(/```json[\s\S]*?```/g,'').trim() || '✓';
     addM('ai',finalText.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')+extraHtml);
   }catch(e){document.getElementById('typ')?.remove();addM('ai','❌ '+e.message);}
