@@ -21,6 +21,117 @@ CORS_HEADERS = {
 def index():
     return send_file("index.html")
 
+@app.route("/api/config")
+def api_config():
+    # Returns server config so frontend doesn't need manual token input
+    return Response(
+        json.dumps({"notion_token": NOTION_TOKEN, "has_ai": bool(GEMINI_KEY)}),
+        headers={**CORS_HEADERS, "Content-Type": "application/json"}
+    )
+
+
+
+# CHAT HISTORY ENDPOINTS
+CHAT_DB_ID = os.environ.get("CHAT_DB_ID", "")
+
+@app.route("/api/chat/save", methods=["POST", "OPTIONS"])
+def save_chat():
+    if request.method == "OPTIONS":
+        return Response("", headers=CORS_HEADERS)
+    try:
+        body = request.get_json()
+        title = body.get("title", "Chat Session")
+        messages = body.get("messages", [])
+        db_id = body.get("db_id", CHAT_DB_ID)
+        if not db_id:
+            return Response(json.dumps({"error": "No CHAT_DB_ID"}), status=400,
+                            headers={**CORS_HEADERS, "Content-Type": "application/json"})
+        children = []
+        for msg in messages:
+            role_label = "User" if msg.get("role") == "user" else "AI"
+            text = str(msg.get("content", ""))[:1900]
+            children.append({"object":"block","type":"paragraph",
+                "paragraph":{"rich_text":[{"type":"text","text":{"content":role_label+": "+text}}]}})
+        page_data = {
+            "parent": {"database_id": db_id},
+            "properties": {"Name": {"title": [{"text": {"content": title}}]}},
+            "children": children
+        }
+        res = requests.post("https://api.notion.com/v1/pages",
+            headers={"Authorization":"Bearer "+NOTION_TOKEN,"Notion-Version":"2022-06-28","Content-Type":"application/json"},
+            json=page_data, timeout=30)
+        data = res.json()
+        return Response(json.dumps({"ok": True, "id": data.get("id","")}),
+                        headers={**CORS_HEADERS,"Content-Type":"application/json"})
+    except Exception as e:
+        return Response(json.dumps({"error": str(e)}), status=500,
+                        headers={**CORS_HEADERS,"Content-Type":"application/json"})
+
+@app.route("/api/chat/list", methods=["GET", "OPTIONS"])
+def list_chats():
+    if request.method == "OPTIONS":
+        return Response("", headers=CORS_HEADERS)
+    try:
+        db_id = request.args.get("db_id", CHAT_DB_ID)
+        if not db_id:
+            return Response(json.dumps({"results":[]}), headers={**CORS_HEADERS,"Content-Type":"application/json"})
+        res = requests.post("https://api.notion.com/v1/databases/"+db_id+"/query",
+            headers={"Authorization":"Bearer "+NOTION_TOKEN,"Notion-Version":"2022-06-28","Content-Type":"application/json"},
+            json={"sorts":[{"timestamp":"created_time","direction":"descending"}],"page_size":30}, timeout=30)
+        data = res.json()
+        results = []
+        for page in data.get("results",[]):
+            t = page.get("properties",{}).get("Name",{})
+            title = t.get("title",[{}])[0].get("plain_text","") if t.get("title") else ""
+            results.append({"id":page["id"],"title":title,"created":page.get("created_time","")[:10]})
+        return Response(json.dumps({"results":results}), headers={**CORS_HEADERS,"Content-Type":"application/json"})
+    except Exception as e:
+        return Response(json.dumps({"results":[],"error":str(e)}), headers={**CORS_HEADERS,"Content-Type":"application/json"})
+
+@app.route("/api/chat/load/<page_id>", methods=["GET", "OPTIONS"])
+def load_chat(page_id):
+    if request.method == "OPTIONS":
+        return Response("", headers=CORS_HEADERS)
+    try:
+        res = requests.get("https://api.notion.com/v1/blocks/"+page_id+"/children",
+            headers={"Authorization":"Bearer "+NOTION_TOKEN,"Notion-Version":"2022-06-28"}, timeout=30)
+        data = res.json()
+        messages = []
+        for block in data.get("results",[]):
+            if block.get("type") == "paragraph":
+                texts = block["paragraph"].get("rich_text",[])
+                text = "".join(t.get("plain_text","") for t in texts)
+                if text.startswith("User: "):
+                    messages.append({"role":"user","content":text[6:]})
+                elif text.startswith("AI: "):
+                    messages.append({"role":"assistant","content":text[4:]})
+        return Response(json.dumps({"messages":messages}), headers={**CORS_HEADERS,"Content-Type":"application/json"})
+    except Exception as e:
+        return Response(json.dumps({"messages":[],"error":str(e)}), headers={**CORS_HEADERS,"Content-Type":"application/json"})
+
+
+@app.route("/api/update_page", methods=["POST", "OPTIONS"])
+def update_page():
+    if request.method == "OPTIONS":
+        return Response("", headers=CORS_HEADERS)
+    try:
+        body = request.get_json()
+        page_id = body.get("page_id","").replace("-","")
+        props = body.get("properties", {})
+        if not page_id:
+            return Response(json.dumps({"error":"No page_id"}), status=400,
+                            headers={**CORS_HEADERS,"Content-Type":"application/json"})
+        res = requests.patch(
+            "https://api.notion.com/v1/pages/"+page_id,
+            headers={"Authorization":"Bearer "+NOTION_TOKEN,"Notion-Version":"2022-06-28","Content-Type":"application/json"},
+            json={"properties": props}, timeout=30)
+        data = res.json()
+        return Response(json.dumps({"ok": res.status_code==200, "id": data.get("id",""), "error": data.get("message","")}),
+                        headers={**CORS_HEADERS,"Content-Type":"application/json"})
+    except Exception as e:
+        return Response(json.dumps({"error":str(e)}), status=500,
+                        headers={**CORS_HEADERS,"Content-Type":"application/json"})
+
 
 @app.route("/ai", methods=["POST", "OPTIONS"])
 def gemini_proxy():

@@ -219,6 +219,19 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
 .dp-btn-add{flex:1;background:transparent;border:1px dashed var(--br2);color:var(--tx3);font-family:var(--fm);font-size:12px;padding:7px;border-radius:5px;cursor:pointer;text-align:center}
 .dp-btn-add:hover{border-color:var(--gr);color:var(--gr)}
 
+/* CHAT HISTORY */
+.hist-wrap{display:flex;flex-direction:column;gap:4px}
+.hist-item{display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--sf);border:1px solid var(--br);border-radius:6px;cursor:pointer}
+.hist-item:hover{border-color:var(--br2);background:var(--sf2)}
+.hist-title{flex:1;font-size:14px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-date{font-size:11px;color:var(--tx3);white-space:nowrap}
+.hist-del{background:transparent;border:none;color:var(--tx3);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:3px}
+.hist-del:hover{background:var(--re);color:#fff}
+.hist-setup{background:var(--sf);border:1px solid var(--br);border-radius:6px;padding:16px;margin-bottom:12px}
+.hist-setup label{font-size:10px;color:var(--gd);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px}
+.hist-setup input{width:100%;background:var(--sf2);border:1px solid var(--br2);color:var(--tx);font-family:var(--fm);font-size:12px;padding:7px 10px;border-radius:4px;outline:none;margin-bottom:8px}
+.hist-setup input:focus{border-color:var(--gdm)}
+
 ::-webkit-scrollbar{width:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--br2);border-radius:2px}
@@ -240,9 +253,9 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
   <div class="dot" id="dot"></div>
   <span class="stx" id="stx">Chưa kết nối</span>
   <div class="spacer"></div>
-  <span class="lbl">Token:</span>
-  <input class="inp" id="tokI" type="password" placeholder="ntn_xxxxxxxxxxxxxxxxxxxx" style="width:200px">
-  <button class="btn" id="cBtn" onclick="topConn()">Kết nối</button>
+  <span class="lbl" id="tokLbl" style="display:none">Token:</span>
+  <input class="inp" id="tokI" type="password" placeholder="ntn_xxxxxxxxxxxxxxxxxxxx" style="width:200px;display:none">
+  <button class="btn" id="cBtn" onclick="topConn()" style="display:none">Kết nối</button>
 </div>
 
 <div class="main" id="mw" style="display:none">
@@ -253,6 +266,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
       <div class="nv" id="n-rep" onclick="go('rep')"><span class="ni">📋</span>Daily Report</div>
       <div class="nv" id="n-tsk" onclick="go('tsk')"><span class="ni">✅</span>All Tasks</div>
       <div class="nv" id="n-prj" onclick="go('prj')"><span class="ni">🗂</span>Projects</div>
+      <div class="nv" id="n-hist" onclick="go('hist')"><span class="ni">🕐</span>Chat History</div>
     </div>
     <div class="hr"></div>
     <div>
@@ -277,6 +291,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
         <span class="qbt" onclick="qc('Tasks đang in progress')">🔄 In progress</span>
         <span class="qbt" onclick="qc('Task nào bị trễ deadline?')">🔴 Trễ hạn</span>
         <span class="qbt" onclick="qc('Thống kê tuần này')">📊 Thống kê</span>
+        <span class="qbt" onclick="saveCurrentChat()" style="border-color:var(--gdm);color:var(--gd)">💾 Lưu chat</span>
       </div>
       <div class="ms" id="ms">
         <div class="mg ai"><div class="av">👁</div>
@@ -416,12 +431,33 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
 <div class="sw" id="setupWrap">
   <div class="st">👁 Circle Tribe Dashboard</div>
   <div class="ss">Kết nối Notion thông qua proxy server. Tokens bảo mật trong environment variables.</div>
-  <div class="wn">⚠️ Đang chạy trên Render — chỉ cần điền Notion Token. Proxy URL tự động.</div><br>
+  <div class="wn" id="setupWarn">⚠️ Chạy trên Render: token tự động từ server. Chỉ cần nhập nếu dùng local.</div><br>
   <div class="fl"><label>Notion API Token</label><input type="password" id="sTok" placeholder="ntn_xxxxxxxxxxxxxxxxxxxx"></div>
   <div class="fl"><label>Task Tracker DB ID</label><input type="text" id="sDb1" value="2e945d0772af81ed8d41ca3869edab4c"></div>
   <div class="fl"><label>Projects DB ID</label><input type="text" id="sDb2" value="2e945d0772af8165b4daccb3ef6a0a97"></div>
   <button class="bp" onclick="setup()">Kết nối Notion →</button>
   <div class="hn">DB IDs đã điền sẵn. Dữ liệu lưu trong sessionStorage trình duyệt.</div>
+</div>
+
+<!-- CHAT HISTORY VIEW -->
+<div class="flex-view" id="v-hist">
+  <div class="vhbar">
+    <span class="vt" style="flex:1">Chat History</span>
+    <button class="btno" onclick="saveCurrentChat()">💾 Lưu chat hiện tại</button>
+    <button class="btno" onclick="loadHistList()">⟳</button>
+  </div>
+  <div class="scroll-area">
+    <!-- DB ID setup -->
+    <div class="hist-setup" id="histSetup">
+      <label>Notion Chat History DB ID</label>
+      <input id="chatDbId" placeholder="Paste DB ID của Chat History database..." oninput="saveChatDbId()">
+      <div style="font-size:11px;color:var(--tx3);line-height:1.6">
+        Tạo 1 database mới trong Notion → đặt tên <b style="color:var(--tx2)">Chat History</b> → chỉ cần 1 cột Title → copy DB ID vào đây.<br>
+        DB ID = chuỗi 32 ký tự trong URL: notion.so/<b style="color:var(--gd)">xxxxxxxx</b>?v=...
+      </div>
+    </div>
+    <div id="histList"><div class="em">Nhập DB ID bên trên để xem lịch sử chat</div></div>
+  </div>
 </div>
 
 <!-- DETAIL PANEL -->
@@ -457,9 +493,36 @@ function tick(){
 }
 setInterval(tick,1000);tick();
 
-window.onload=()=>{
+window.onload=async ()=>{
+  // Try session first
   const s=sessionStorage.getItem('ct3');
-  if(s){try{C=JSON.parse(s);if(C.ok)boot();}catch(e){}}
+  if(s){
+    try{
+      C=JSON.parse(s);
+      if(C.ok){ boot(); return; }
+    }catch(e){}
+  }
+  // Auto-fetch token from server (Render env vars)
+  try{
+    const r=await fetch('/api/config');
+    if(r.ok){
+      const cfg=await r.json();
+      if(cfg.notion_token && cfg.notion_token.length>10){
+        C.proxy=isRender()?window.location.origin:'';
+        C.token=cfg.notion_token;
+        if(!C.tdb)C.tdb='2e945d0772af81ed8d41ca3869edab4c';
+        if(!C.pdb)C.pdb='2e945d0772af8165b4daccb3ef6a0a97';
+        C.ok=true;
+        sessionStorage.setItem('ct3',JSON.stringify(C));
+        boot();
+        initChatHistory();
+        document.getElementById('stx').textContent='Đang kết nối...';
+        testConn();
+        return;
+      }
+    }
+  }catch(e){}
+  // Fallback: show setup screen
 };
 
 function isRender(){return window.location.hostname!=='localhost'&&window.location.hostname!=='127.0.0.1';}
@@ -486,6 +549,15 @@ function topConn(){
 function boot(){
   document.getElementById('setupWrap').style.display='none';
   document.getElementById('mw').style.display='flex';
+  // On Render: hide manual token inputs since it's auto-connected
+  if(isRender() && C.token){
+    const tl=document.getElementById('tokLbl');
+    const ti=document.getElementById('tokI');
+    const cb=document.getElementById('cBtn');
+    if(tl)tl.style.display='none';
+    if(ti)ti.style.display='none';
+    if(cb)cb.style.display='none';
+  }
 }
 async function testConn(){
   showLd('Đang kết nối Notion...');
@@ -755,6 +827,7 @@ function go(v){
   if(v==='rep')loadRep();
   if(v==='tsk')loadTsk();
   if(v==='prj')loadPrj();
+  if(v==='hist')loadHistList();
 }
 
 // LOAD DATA
@@ -875,27 +948,175 @@ async function send(){
     projLine +
     'KHI TAO TASK/PROJECT MOI, tra JSON dang sau:\n' +
     '{"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started"}\n' +
-    '{"action":"create_project","name":"...","end":"YYYY-MM-DD"}\n\n' +
+    '{"action":"create_project","name":"...","assignee":"...","end":"YYYY-MM-DD","status":"In progress"}\n\n' +
     'LUON tra loi bang text day du trong chat bang tieng Viet.\n' +
     'Khi hoi ve tasks cua ai do, loc tu du lieu thuc te va liet ke ro rang.\n' +
     'Khi hoi report/thong ke, tinh toan tu du lieu thuc te va trinh bay trong chat.\n' +
-    'Chi dung JSON action khi nguoi dung yeu cau TAO task/project moi.';
+    'Chi dung JSON action khi can TAO MOIS hoac CAP NHAT task/project.\n\n' +
+    'LIET KE TASKS - LUON tra JSON:\n' +
+    '{"action":"list_tasks","items":[{"id":"EXACT_PAGE_ID","name":"...","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n' +
+    'id PHAI lay chinh xac tu du lieu, khong tu tao.\n\n' +
+    'TAO TASK (bat ky thu tu):\n' +
+    '{"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started","assignee":"...","priority":"High/Mid/Low"}\n\n' +
+    'TAO PROJECT (bat ky thu tu):\n' +
+    '{"action":"create_project","name":"...","assignee":"...","end":"YYYY-MM-DD","status":"In progress"}\n\n' +
+    'CAP NHAT TASK/PROJECT (khi muon assign/set due/doi status task co san):\n' +
+    '{"action":"update_task","id":"EXACT_PAGE_ID","assignee":"...","due":"YYYY-MM-DD","status":"...","priority":"..."}\n' +
+    'Chi dien field CAN THAY DOI, bo trong field khong doi.\n' +
+    'Neu task chua co owner, tu dong assign nguoi duoc nhac den.\n' +
+    'Neu task chua co due date, tu dong set neu user dua ra deadline.\n\n' +
+    'Viet tat: deadline=due=end, giao/assign=assignee=owner, uu tien=priority\n' +
+    'Khi update nhieu task cung luc, tra array JSON:\n' +
+    '{"action":"update_batch","updates":[{"id":"...","status":"..."},{"id":"...","assignee":"..."}]}';
   try{
     const res=await fetch(C.proxy+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:SYS,messages:H.slice(-10)})});
     const raw=await res.json();
     console.log('AI raw:',JSON.stringify(raw).slice(0,200));
     const reply=raw.content?.[0]?.text||raw.error||'Không có phản hồi';
     document.getElementById('typ')?.remove();
-    H.push({role:'assistant',content:reply});
+    H.push({role:'assistant',content:reply}); checkAutoSave();
     const jm=reply.match(/```json\s*([\s\S]*?)```/);
     const disp=reply.replace(/```json[\s\S]*?```/g,'').trim();
-    if(jm){try{await execAct(JSON.parse(jm[1]));}catch(e){}}
+    let extraHtml='';
+    if(jm){try{
+      const act=JSON.parse(jm[1]);
+      await execAct(act, (html)=>{ extraHtml=html; });
+    }catch(e){}}catch(e){}}
     const finalText = disp || reply.replace(/```json[\s\S]*?```/g,'').trim() || '✓';
-    addM('ai',finalText.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
+    addM('ai',finalText.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')+extraHtml);
   }catch(e){document.getElementById('typ')?.remove();addM('ai','❌ '+e.message);}
   document.getElementById('bsn').disabled=false;
 }
-async function execAct(act){
+// Update a Notion page via proxy
+async function updatePage(pageId, fields){
+  // Build Notion properties from simple fields object
+  const props = {};
+  if(fields.status)   props['Status']   = {status:{name:fields.status}};
+  if(fields.due)      props['Due date'] = {date:{start:fields.due}};
+  if(fields.priority) props['Priority'] = {select:{name:fields.priority}};
+  // Assignee: try rich_text (most compatible without user lookup)
+  if(fields.assignee) props['Assignee'] = {rich_text:[{text:{content:fields.assignee}}]};
+
+  const r = await fetch(C.proxy+'/api/update_page',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({page_id:pageId, properties:props})
+  });
+  const data = await r.json();
+  if(!data.ok) throw new Error(data.error||'Update failed');
+  return data;
+}
+
+// Find page by name (fuzzy) in cached data
+function findPageByName(name){
+  const lower = name.toLowerCase();
+  const all = [...ALL_TSK,...ALL_PRJ,...ALL_REP];
+  // Exact match first
+  let found = all.find(p=>gTitle(p).toLowerCase()===lower);
+  if(!found) found = all.find(p=>gTitle(p).toLowerCase().includes(lower));
+  if(!found) found = all.find(p=>lower.includes(gTitle(p).toLowerCase().replace(/[^a-z0-9]/g,' ').trim().slice(0,10)));
+  return found||null;
+}
+
+async function execAct(act, cb){
+  // LIST TASKS — render clickable rows in chat
+  if(act.action==='list_tasks' && act.items?.length){
+    const html = act.items.map(item=>{
+      const pid=item.id||'';
+      const st=item.status||'';
+      const isDone=/done|complete/i.test(st);
+      const lt=!isDone&&isLate(item.due);
+      const td=!isDone&&isTdy(item.due);
+      // Register in ALL_TSK so detail panel can find it
+      if(pid && ![...ALL_TSK,...ALL_PRJ,...ALL_REP].find(p=>p.id===pid)){
+        ALL_TSK.push({id:pid,created_time:'',properties:{
+          [TTL_KEY]:{type:'title',title:[{plain_text:item.name||''}]},
+          'Status':{type:'status',status:{name:st}},
+          'Assignee':{type:'people',people:[{name:item.owner||''}]},
+          'Due date':{type:'date',date:item.due?{start:item.due}:null}
+        }});
+      }
+      return `<div style="display:grid;grid-template-columns:8px 1fr 130px 100px;gap:8px;align-items:center;
+        padding:7px 10px;background:var(--sf3);border:1px solid var(--br);border-radius:5px;
+        margin-bottom:3px;cursor:pointer" onclick="openDetail(event,'${pid}')">
+        <div style="width:8px;height:8px;border-radius:50%;background:${scC(st)};flex-shrink:0"></div>
+        <div style="color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${item.name||'?'}</div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <div style="width:20px;height:20px;border-radius:50%;background:var(--sf2);border:1px solid var(--br2);
+            display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--gd);font-weight:700;flex-shrink:0">
+            ${ini(item.owner)}</div>
+          <span style="font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.owner||'—'}</span>
+        </div>
+        <span style="font-size:10px;padding:3px 7px;border-radius:3px;${stBg(st)};white-space:nowrap">${st||'—'}</span>
+      </div>`;
+    }).join('');
+    if(cb) cb(`<div style="margin-top:6px">${html}</div>`);
+    return;
+  }
+
+  // UPDATE TASK / PROJECT
+  if(act.action==='update_task'){
+    const pid = act.id;
+    if(!pid){ toast('Không tìm được task ID','er'); return; }
+    try{
+      const fields = {};
+      if(act.assignee) fields.assignee = act.assignee;
+      if(act.due)      fields.due      = act.due;
+      if(act.status)   fields.status   = act.status;
+      if(act.priority) fields.priority = act.priority;
+      if(!Object.keys(fields).length){ toast('Không có gì để update','er'); return; }
+
+      // Check existing values - only update empty fields unless explicitly forced
+      const page = [...ALL_TSK,...ALL_PRJ,...ALL_REP].find(p=>p.id===pid||p.id===pid.replace(/-/g,''));
+      const finalFields = {};
+      if(fields.assignee){
+        const curOwner = page ? gOwner(page) : '';
+        if(!curOwner || act.force) finalFields.assignee = fields.assignee;
+        else if(act.assignee) finalFields.assignee = fields.assignee; // always update if specified
+      }
+      if(fields.due){
+        const curDue = page ? gDue(page) : '';
+        finalFields.due = fields.due; // always update due if specified
+      }
+      if(fields.status) finalFields.status = fields.status;
+      if(fields.priority) finalFields.priority = fields.priority;
+
+      await updatePage(pid, finalFields);
+      const taskName = page ? gTitle(page) : pid;
+      const updated = Object.keys(finalFields).join(', ');
+      toast('✅ Đã update: '+taskName.slice(0,30)+' ('+updated+')','ok');
+      // Update local cache
+      if(page){
+        if(finalFields.assignee && page.properties?.['Assignee'])
+          page.properties['Assignee'] = {type:'rich_text',rich_text:[{plain_text:finalFields.assignee}]};
+        if(finalFields.status && page.properties?.['Status'])
+          page.properties['Status'] = {type:'status',status:{name:finalFields.status}};
+        if(finalFields.due && page.properties?.['Due date'])
+          page.properties['Due date'] = {type:'date',date:{start:finalFields.due}};
+      }
+      setTimeout(()=>{ if(ALL_TSK.length)loadTsk(); },600);
+    }catch(e){ toast('Lỗi update: '+e.message,'er'); }
+  }
+
+  // UPDATE BATCH
+  if(act.action==='update_batch' && act.updates?.length){
+    let ok=0, fail=0;
+    for(const upd of act.updates){
+      try{
+        const fields={};
+        if(upd.assignee) fields.assignee=upd.assignee;
+        if(upd.due)      fields.due=upd.due;
+        if(upd.status)   fields.status=upd.status;
+        if(upd.priority) fields.priority=upd.priority;
+        if(Object.keys(fields).length) await updatePage(upd.id, fields);
+        ok++;
+      }catch(e){ fail++; }
+    }
+    toast('✅ Đã update '+ok+' tasks'+(fail?' ('+fail+' lỗi)':''),'ok');
+    setTimeout(()=>{ if(ALL_TSK.length)loadTsk(); },800);
+  }
+
+  // CREATE TASK
   if(act.action==='create_task'){
     try{
       const props={};
@@ -903,284 +1124,140 @@ async function execAct(act){
       if(act.status)props['Status']={status:{name:act.status}};
       if(act.due)props['Due date']={date:{start:act.due}};
       await mkPg(C.tdb,props);
-      toast('✅ Đã tạo: '+act.name,'ok');
-    }catch(e){toast('Lỗi: '+e.message,'er');}
+      toast('✅ Đã tạo task: '+(act.name||''),'ok');
+      if(ALL_TSK.length) setTimeout(loadTsk,500);
+    }catch(e){toast('Lỗi tạo task: '+e.message,'er');}
   }
+
+  // CREATE PROJECT
   if(act.action==='create_project'&&C.pdb){
     try{
-      const props={'Project name':{title:[{text:{content:act.name||'New Project'}}]}};
-      if(act.end)props['End date']={date:{start:act.end}};
+      const props={};
+      props['Project name']={title:[{text:{content:act.name||'New Project'}}]};
+      // Status
+      if(act.status) props['Status']={status:{name:act.status}};
+      // End date
+      const endDate = act.end||act.due||act.deadline||null;
+      if(endDate) props['End date']={date:{start:endDate}};
+      // Assignee - try people, fallback text field
+      const who = act.assignee||act.lead||act.owner||null;
+      if(who){
+        try{ props['Assignee']={rich_text:[{text:{content:who}}]}; }catch(e){}
+      }
       await mkPg(C.pdb,props);
-      toast('✅ Tạo project: '+act.name,'ok');
-    }catch(e){toast('Lỗi: '+e.message,'er');}
+      toast('✅ Đã tạo project: '+(act.name||''),'ok');
+      if(ALL_PRJ.length) setTimeout(loadPrj,500);
+    }catch(e){toast('Lỗi tạo project: '+e.message,'er');}
   }
-  // don't auto-navigate, let AI respond in chat
 }
-// ─── DETAIL PANEL ────────────────────────────────────
-let CURRENT_PAGE = null;
-let PAGE_CACHE = {};
 
-async function openDetail(e, pid){
-  if(e) e.stopPropagation();
 
-  // Find page in cached data
-  let page = [...ALL_TSK, ...ALL_PRJ, ...ALL_REP].find(p=>p.id===pid);
-  if(!page){
-    // Try subtask data
-    for(const subs of Object.values(SUB_DATA||{})){
-      const found = subs.find(p=>p.id===pid);
-      if(found){page=found;break;}
+// ─── CHAT HISTORY ────────────────────────────────────
+let CHAT_DB_ID_LOCAL = '';
+
+function saveChatDbId(){
+  const v = document.getElementById('chatDbId').value.trim().replace(/-/g,'');
+  CHAT_DB_ID_LOCAL = v;
+  sessionStorage.setItem('chatDbId', v);
+  if(v.length >= 32) loadHistList();
+}
+
+function initChatHistory(){
+  const saved = sessionStorage.getItem('chatDbId');
+  if(saved){
+    CHAT_DB_ID_LOCAL = saved;
+    const el = document.getElementById('chatDbId');
+    if(el) el.value = saved;
+  }
+}
+
+async function loadHistList(){
+  if(!CHAT_DB_ID_LOCAL){ 
+    document.getElementById('histList').innerHTML='<div class="em">Cần nhập Chat History DB ID</div>';
+    return;
+  }
+  document.getElementById('histList').innerHTML='<div class="em">Đang tải...</div>';
+  try{
+    const r = await fetch(C.proxy+'/api/chat/list?db_id='+CHAT_DB_ID_LOCAL);
+    const data = await r.json();
+    if(!data.results?.length){
+      document.getElementById('histList').innerHTML='<div class="em">Chưa có lịch sử chat nào</div>';
+      return;
     }
-  }
-  if(!page) return;
-
-  CURRENT_PAGE = page;
-  document.getElementById('dpTitle').textContent = gTitle(page);
-  document.getElementById('dpBody').innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx3);font-size:12px">Đang tải...</div>';
-  document.getElementById('dpOverlay').className = 'detail-overlay open';
-  document.getElementById('dpPanel').className = 'detail-panel open';
-
-  // Fetch full page details + description blocks
-  try{
-    const [fullPage, blocks, subData] = await Promise.all([
-      nGet('/pages/'+pid),
-      nGet('/blocks/'+pid+'/children'),
-      fetchSubTasks(pid)
-    ]);
-    PAGE_CACHE[pid] = {fullPage, blocks, subData};
-    renderDetail(fullPage, blocks, subData);
-  }catch(e){
-    renderDetail(page, null, []);
-  }
-}
-
-async function fetchSubTasks(pid){
-  // Try parent item relation first
-  try{
-    const data = await nPost('/databases/'+C.tdb+'/query',{
-      filter:{property:'Parent item',relation:{contains:pid}}
-    });
-    if(data.results?.length) return data.results;
-  }catch(e){}
-  // Fallback: child blocks
-  try{
-    const blocks = await nGet('/blocks/'+pid+'/children');
-    const kids = (blocks.results||[]).filter(b=>b.type==='child_page');
-    if(kids.length) return kids.map(b=>({
-      id:b.id,
-      properties:{[TTL_KEY]:{type:'title',title:[{plain_text:b.child_page?.title||'Subtask'}]}},
-      created_time:b.created_time||''
-    }));
-  }catch(e){}
-  return [];
-}
-
-function renderDetail(page, blocks, subs){
-  const nm=gTitle(page),ow=gOwner(page),du=gDue(page),st=gStatus(page);
-  const cb=gCreatedBy(page),ct=gCreatedAt(page);
-  const isDone=/done|complete/i.test(st);
-  const lt=!isDone&&isLate(du),td=!isDone&&isTdy(du);
-
-  // Get estimate hours
-  const estHours = gp(page,'Estimated Hours','Estimate','Hours','Est. Hours','estimated_hours') || '';
-
-  // Get description from blocks
-  let desc = '';
-  if(blocks){
-    const textBlocks = (blocks.results||[]).filter(b=>
-      ['paragraph','heading_1','heading_2','heading_3','bulleted_list_item','numbered_list_item','to_do'].includes(b.type)
-    );
-    desc = textBlocks.map(b=>{
-      const type = b.type;
-      const richText = b[type]?.rich_text||[];
-      return richText.map(t=>t.plain_text).join('');
-    }).filter(Boolean).join('\n');
-  }
-
-  // Priority
-  const pri = gp(page,'Priority','priority');
-
-  const html = `
-    <div class="dp-grid">
-      <div class="dp-row">
-        <div class="dp-lbl">Status</div>
-        <div><span class="st-badge" style="${stBg(st)}">${st||'—'}</span></div>
-      </div>
-      <div class="dp-row">
-        <div class="dp-lbl">Priority</div>
-        <div class="dp-val">${pri||'—'}</div>
-      </div>
-    </div>
-
-    <div class="dp-divider"></div>
-
-    <div class="dp-grid">
-      <div class="dp-row">
-        <div class="dp-lbl">Assignee</div>
-        <div class="assignee-cell">
-          <div class="aav" style="width:28px;height:28px;font-size:11px">${ini(ow)}</div>
-          <div class="dp-val">${ow||'—'}</div>
+    const html = '<div class="hist-wrap">'+data.results.map(item=>`
+      <div class="hist-item">
+        <span style="font-size:18px">💬</span>
+        <div style="flex:1;overflow:hidden">
+          <div class="hist-title">${item.title||'Chat session'}</div>
+          <div class="hist-date">${item.created||''}</div>
         </div>
-      </div>
-      <div class="dp-row">
-        <div class="dp-lbl">Due date</div>
-        <div class="dp-val ${lt?'lt':td?'td':''}" style="${lt?'color:var(--re)':td?'color:var(--gr)':''}">${fmtD(du)||'—'}</div>
-      </div>
-    </div>
-
-    <div class="dp-grid">
-      <div class="dp-row">
-        <div class="dp-lbl">Estimate Hours</div>
-        <div class="dp-val">${estHours||'—'}</div>
-      </div>
-      <div class="dp-row">
-        <div class="dp-lbl">Created</div>
-        <div class="dp-val muted">${cb?cb+' · ':''} ${ct||'—'}</div>
-      </div>
-    </div>
-
-    <div class="dp-divider"></div>
-
-    <div class="dp-row">
-      <div class="dp-lbl">Description</div>
-      <div class="dp-desc ${desc?'':'empty'}">${desc||'Chưa có mô tả'}</div>
-    </div>
-
-    <div class="dp-divider"></div>
-
-    <div>
-      <div class="dp-sub-title">Subtasks <span style="color:var(--tx3);font-weight:400">(${subs.length})</span></div>
-      <div class="dp-sub-list" id="dpSubList">
-        ${subs.length ? subs.map(s=>{
-          const sn=gTitle(s),ss=gStatus(s),sd=gDue(s);
-          const sl=!(/done|complete/i.test(ss))&&isLate(sd);
-          return`<div class="dp-sub-item" onclick="openDetail(event,'${s.id}')">
-            <div class="rd" style="background:${scC(ss)}"></div>
-            <div class="dp-sub-name">${sn}</div>
-            <span class="st-badge" style="${stBg(ss)};font-size:10px">${ss||'—'}</span>
-            ${sd?`<div class="dp-sub-st ${sl?'lt':''}" style="${sl?'color:var(--re)':''}">${fmtD(sd)}</div>`:''}
-          </div>`;
-        }).join('') : '<div class="dp-val muted" style="font-size:13px;padding:4px 0">Chưa có subtask</div>'}
-      </div>
-    </div>`;
-
-  document.getElementById('dpBody').innerHTML = html;
-}
-
-function closeDetail(){
-  document.getElementById('dpOverlay').className = 'detail-overlay';
-  document.getElementById('dpPanel').className = 'detail-panel';
-  CURRENT_PAGE = null;
-}
-
-async function dpAddSubTask(){
-  if(!CURRENT_PAGE)return;
-  const name = prompt('Tên subtask:');
-  if(!name)return;
-  const pid = CURRENT_PAGE.id;
-  showLd('Đang tạo subtask...');
-  try{
-    const props={};
-    props[TTL_KEY]={title:[{text:{content:name}}]};
-    try{props['Parent item']={relation:[{id:pid}]};}catch(e){}
-    const newPage = await mkPg(C.tdb,props);
-    toast('✅ Đã tạo subtask: '+name,'ok');
-    // Refresh subtasks in panel
-    const subs = await fetchSubTasks(pid);
-    const cached = PAGE_CACHE[pid];
-    if(cached) renderDetail(cached.fullPage||CURRENT_PAGE, cached.blocks||null, subs);
-  }catch(e){toast('Lỗi: '+e.message,'er');}
-  hideLd();
-}
-
-// Keep ESC to close
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape') closeDetail();
-});
-
-// ─── SUBTASK ─────────────────────────────────────────
-let SUB_OPEN={};
-let SUB_DATA={};
-
-async function toggleSub(e,pid){
-  e.stopPropagation();
-  const wrap=document.getElementById('sub-'+pid);
-  const btn=document.getElementById('exp-'+pid);
-  if(!wrap)return;
-  const isOpen=SUB_OPEN[pid];
-  if(isOpen){
-    wrap.className='sub-wrap';
-    if(btn)btn.className='expand-btn';
-    SUB_OPEN[pid]=false;
-    return;
-  }
-  SUB_OPEN[pid]=true;
-  if(btn)btn.className='expand-btn open';
-  wrap.className='sub-wrap open';
-  if(SUB_DATA[pid]){renderSub(pid);return;}
-  wrap.innerHTML='<div style="padding:6px 10px;font-size:11px;color:var(--tx3)">Đang tải subtasks...</div>';
-  try{
-    // Try Notion sub-items relation (parent_item field)
-    const data=await nPost('/databases/'+C.tdb+'/query',{
-      filter:{property:'Parent item',relation:{contains:pid}}
-    });
-    SUB_DATA[pid]=data.results||[];
-    renderSub(pid);
+        <button class="btno" onclick="loadChatSession('${item.id}','${(item.title||'').replace(/'/g,'')}')">Mở</button>
+      </div>`).join('')+'</div>';
+    document.getElementById('histList').innerHTML = html;
   }catch(e){
-    // Fallback: fetch child blocks
-    try{
-      const blocks=await nGet('/blocks/'+pid+'/children');
-      const childPages=(blocks.results||[]).filter(b=>b.type==='child_page'||b.type==='child_database');
-      SUB_DATA[pid]=childPages.map(b=>({
-        id:b.id,
-        properties:{'Task name':{type:'title',title:[{plain_text:b.child_page?.title||b.child_database?.title||'Subtask'}]}},
-        created_time:b.created_time||''
-      }));
-      renderSub(pid);
-    }catch(e2){
-      wrap.innerHTML=`<div style="padding:6px 10px;font-size:11px;color:var(--tx3)">Không có subtask nào</div>
-        <div class="sub-add" onclick="openAddSub('${pid}')">＋ Thêm subtask</div>`;
-    }
+    document.getElementById('histList').innerHTML='<div class="em">Lỗi: '+e.message+'</div>';
   }
 }
 
-function renderSub(pid){
-  const wrap=document.getElementById('sub-'+pid);
-  if(!wrap)return;
-  const subs=SUB_DATA[pid]||[];
-  if(!subs.length){
-    wrap.innerHTML=`<div style="padding:5px 10px;font-size:11px;color:var(--tx3)">Chưa có subtask</div>
-      <div class="sub-add" onclick="openAddSub('${pid}')">＋ Thêm subtask</div>`;
+async function saveCurrentChat(){
+  if(!H.length){ toast('Không có chat để lưu','er'); return; }
+  if(!CHAT_DB_ID_LOCAL){ 
+    toast('Cần nhập Chat History DB ID trước','er');
+    go('hist');
     return;
   }
-  wrap.innerHTML=subs.map(p=>mkRow(p,true)).join('')+
-    `<div class="sub-add" onclick="openAddSub('${pid}')">＋ Thêm subtask</div>`;
-}
-
-function openAddSub(parentId){
-  const name=prompt('Tên subtask:');
-  if(!name)return;
-  addSub(parentId,name);
-}
-
-async function addSub(parentId,name){
-  showLd('Đang tạo subtask...');
+  const now = new Date();
+  const title = now.toLocaleDateString('vi-VN')+' '+now.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})+' — '+
+    (H[0]?.content||'Chat session').slice(0,40);
+  showLd('Đang lưu chat...');
   try{
-    const props={};
-    props[TTL_KEY]={title:[{text:{content:name}}]};
-    // Try to set parent relation
-    try{props['Parent item']={relation:[{id:parentId}]};}catch(e){}
-    await mkPg(C.tdb,props);
-    toast('✅ Đã tạo subtask: '+name,'ok');
-    delete SUB_DATA[parentId];
-    const wrap=document.getElementById('sub-'+parentId);
-    if(wrap){
-      wrap.innerHTML='<div style="padding:6px;font-size:11px;color:var(--tx3)">Đang tải lại...</div>';
-      setTimeout(()=>toggleSub({stopPropagation:()=>{}},parentId),300);
-      setTimeout(()=>toggleSub({stopPropagation:()=>{}},parentId),350);
+    const r = await fetch(C.proxy+'/api/chat/save',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({title, messages:H, db_id:CHAT_DB_ID_LOCAL})
+    });
+    const data = await r.json();
+    if(data.ok){
+      toast('✅ Đã lưu: '+title.slice(0,30),'ok');
+    } else {
+      toast('Lỗi lưu: '+(data.error||'unknown'),'er');
     }
-  }catch(e){toast('Lỗi: '+e.message,'er');}
+  }catch(e){ toast('Lỗi: '+e.message,'er'); }
   hideLd();
+}
+
+async function loadChatSession(pageId, title){
+  showLd('Đang tải chat...');
+  try{
+    const r = await fetch(C.proxy+'/api/chat/load/'+pageId);
+    const data = await r.json();
+    if(!data.messages?.length){
+      toast('Không có nội dung','er');
+      hideLd();
+      return;
+    }
+    // Load into chat view
+    H = data.messages;
+    const msEl = document.getElementById('ms');
+    // Clear and re-render
+    msEl.innerHTML = '<div class="mg ai"><div class="av">👁</div><div class="bb"><b>'+title+'</b><br><span style="font-size:11px;color:var(--tx3)">Lịch sử chat đã tải — '+data.messages.length+' tin nhắn</span></div></div>';
+    data.messages.forEach(msg=>{
+      addM(msg.role==='user'?'u':'ai',
+        msg.content.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>'));
+    });
+    go('chat');
+    toast('✅ Đã tải chat','ok');
+  }catch(e){ toast('Lỗi: '+e.message,'er'); }
+  hideLd();
+}
+
+// Auto-save chat every 10 messages
+let LAST_SAVE_LEN = 0;
+function checkAutoSave(){
+  if(H.length > 0 && H.length % 10 === 0 && H.length !== LAST_SAVE_LEN && CHAT_DB_ID_LOCAL){
+    LAST_SAVE_LEN = H.length;
+    saveCurrentChat();
+  }
 }
 
 function showLd(t){document.getElementById('ldov').className='ld on';document.getElementById('ltxt').textContent=t;}

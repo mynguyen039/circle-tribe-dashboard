@@ -9,3 +9,5 @@ services:
         sync: false
       - key: GEMINI_KEY
         sync: false
+      - key: CHAT_DB_ID
+        sync: false
