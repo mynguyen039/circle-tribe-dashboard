@@ -622,6 +622,7 @@ function mkRow(page, isSubtask=false){
 // RENDER STICKY
 function mkSticky(page){
   const nm=gTitle(page),ow=gOwner(page),du=gDue(page),st=gStatus(page),cb=gCreatedBy(page),ct=gCreatedAt(page);
+  const pid=page.id||'';
   const isDone2=/done|complete/i.test(st);
   const lt=!isDone2&&isLate(du),td=!isDone2&&isTdy(du);
   return`<div class="sticky ${stCls(st)}" onclick="openDetail(event,'${pid}')">
@@ -822,6 +823,26 @@ function addTyp(){
   d.innerHTML=`<div class="av">👁</div><div class="bb"><div class="tdots"><span></span><span></span><span></span></div></div>`;
   el.appendChild(d);el.scrollTop=el.scrollHeight;
 }
+// Build compact task list for AI context
+function buildTaskContext(){
+  const tasks = ALL_TSK.length ? ALL_TSK : ALL_REP;
+  if(!tasks.length) return 'Chưa có dữ liệu tasks. Người dùng cần vào Daily Report hoặc All Tasks để load dữ liệu trước.';
+  return tasks.slice(0,80).map(p=>{
+    const nm=gTitle(p),ow=gOwner(p),du=gDue(p),st=gStatus(p),pri=gp(p,'Priority','priority');
+    return `- "${nm}" | owner:${ow||'?'} | status:${st||'?'} | due:${du||'none'} | priority:${pri||'none'}`;
+  }).join('
+');
+}
+
+function buildProjContext(){
+  if(!ALL_PRJ.length) return '';
+  return ALL_PRJ.slice(0,30).map(p=>{
+    const nm=gTitle(p),ow=gOwner(p),du=gDue(p),st=gStatus(p);
+    return `- "${nm}" | lead:${ow||'?'} | status:${st||'?'} | end:${du||'none'}`;
+  }).join('
+');
+}
+
 async function send(){
   const ci=document.getElementById('ci');
   const txt=ci.value.trim();
@@ -830,14 +851,35 @@ async function send(){
   ci.value='';
   document.getElementById('bsn').disabled=true;
   addM('u',txt);H.push({role:'user',content:txt});addTyp();
+
+  // Load data if not yet loaded
+  if(!ALL_TSK.length && C.tdb){
+    try{const d=await qDb(C.tdb);ALL_TSK=d.results||[];}catch(e){}
+  }
+  if(!ALL_PRJ.length && C.pdb){
+    try{const d=await qDb(C.pdb);ALL_PRJ=d.results||[];}catch(e){}
+  }
+
+  const taskCtx = buildTaskContext();
+  const projCtx = buildProjContext();
+
   const SYS=`Bạn là AI assistant quản lý công việc team game dev Circle Tribe Idle (4 người).
-Task DB: ${C.tdb}, Projects DB: ${C.pdb}, Hôm nay: ${TODAY()}
-Khi tạo task/project, trả JSON trong \`\`\`json...\`\`\`:
+Hôm nay: ${TODAY()}
+
+DỮ LIỆU TASKS THỰC TẾ TỪ NOTION:
+${taskCtx}
+
+${projCtx ? 'DỮ LIỆU PROJECTS:
+'+projCtx : ''}
+
+KHI TẠO TASK/PROJECT MỚI, trả JSON trong \\`\\`\\`json...\\`\\`\\`:
 Tạo task: {"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started"}
 Tạo project: {"action":"create_project","name":"...","end":"YYYY-MM-DD"}
-Trả lời tiếng Việt ngắn gọn. QUAN TRỌNG: Luôn trả lời đầy đủ bằng text trong chat.
-Nếu hỏi về tasks/report, hãy trả lời bằng text mô tả kết quả, KHÔNG dùng action show_report.
-Chỉ dùng JSON action khi cần tạo task/project mới.`;
+
+LUÔN trả lời bằng text đầy đủ trong chat bằng tiếng Việt.
+Khi hỏi về tasks của ai đó, lọc từ dữ liệu thực tế bên trên và liệt kê rõ ràng.
+Khi hỏi report/thống kê, tính toán từ dữ liệu thực tế và trình bày trong chat.
+Chỉ dùng JSON action khi người dùng yêu cầu TẠO task/project mới.`;
   try{
     const res=await fetch(C.proxy+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:SYS,messages:H.slice(-10)})});
     const raw=await res.json();
