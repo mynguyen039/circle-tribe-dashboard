@@ -14,7 +14,7 @@
   --tx:#F0EDE8;--tx2:#A0998E;--tx3:#605A52;
   --re:#E05A3A;--gr:#5A9E6A;--bl:#4A8AB0;--ye:#C8A832;
   --fh:'Syne',sans-serif;--fm:'DM Mono',monospace;
-  --fsz:26px;
+  --fsz:16px;
 }
 body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--fsz);height:100vh;display:flex;flex-direction:column;overflow:hidden}
 .tb{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--sf);border-bottom:1px solid var(--br);flex-shrink:0}
@@ -682,8 +682,9 @@ Xem report: {"action":"show_report"}
 Trả lời tiếng Việt ngắn gọn.`;
   try{
     const res=await fetch(C.proxy+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:SYS,messages:H.slice(-10)})});
-    const data=await res.json();
-    const reply=data.content?.[0]?.text||'Không có phản hồi';
+    const raw=await res.json();
+    console.log('AI response:', JSON.stringify(raw).slice(0,300));
+    const reply=raw.content?.[0]?.text||raw.error||'Không có phản hồi';
     document.getElementById('typ')?.remove();
     H.push({role:'assistant',content:reply});
     const jm=reply.match(/```json\s*([\s\S]*?)```/);

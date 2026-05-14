@@ -26,30 +26,55 @@ def index():
 def gemini_proxy():
     if request.method == "OPTIONS":
         return Response("", headers=CORS_HEADERS)
+    
+    if not GEMINI_KEY:
+        err = {"content": [{"type": "text", "text": "GEMINI_KEY chua duoc set trong Render Environment Variables"}]}
+        return Response(json.dumps(err), status=200, headers={**CORS_HEADERS, "Content-Type": "application/json"})
+    
     try:
         body = request.get_json()
-        # Convert Claude-style messages to Gemini format
         messages = body.get("messages", [])
         system = body.get("system", "")
         contents = []
         if system:
             contents.append({"role": "user", "parts": [{"text": system}]})
-            contents.append({"role": "model", "parts": [{"text": "OK, understood."}]})
+            contents.append({"role": "model", "parts": [{"text": "Da hieu. San sang ho tro."}]})
         for m in messages:
             role = "model" if m["role"] == "assistant" else "user"
-            contents.append({"role": role, "parts": [{"text": m["content"]}]})
+            text = m.get("content", "")
+            if text:
+                contents.append({"role": role, "parts": [{"text": text}]})
         
-        gemini_body = {"contents": contents, "generationConfig": {"maxOutputTokens": 1000}}
+        if not contents:
+            contents.append({"role": "user", "parts": [{"text": "Xin chao"}]})
+
+        gemini_body = {
+            "contents": contents,
+            "generationConfig": {"maxOutputTokens": 1500, "temperature": 0.7}
+        }
         url = GEMINI_URL + "?key=" + GEMINI_KEY
         res = requests.post(url, json=gemini_body, timeout=60)
-        
-        # Convert Gemini response to Claude-style format
         data = res.json()
-        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        
+        # Log for debugging
+        print("Gemini status:", res.status_code)
+        if res.status_code != 200:
+            print("Gemini error:", json.dumps(data)[:500])
+            err_msg = data.get("error", {}).get("message", "Gemini API error " + str(res.status_code))
+            out = {"content": [{"type": "text", "text": "Loi Gemini: " + err_msg}]}
+            return Response(json.dumps(out), status=200, headers={**CORS_HEADERS, "Content-Type": "application/json"})
+        
+        candidates = data.get("candidates", [])
+        if not candidates:
+            out = {"content": [{"type": "text", "text": "Gemini khong tra ve ket qua. Kiem tra GEMINI_KEY trong Render."}]}
+            return Response(json.dumps(out), status=200, headers={**CORS_HEADERS, "Content-Type": "application/json"})
+        
+        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "")
         out = {"content": [{"type": "text", "text": text}]}
         return Response(json.dumps(out), status=200,
                         headers={**CORS_HEADERS, "Content-Type": "application/json"})
     except Exception as e:
+        print("AI proxy exception:", str(e))
         return Response(json.dumps({"error": str(e)}), status=500,
                         headers={**CORS_HEADERS, "Content-Type": "application/json"})
 
