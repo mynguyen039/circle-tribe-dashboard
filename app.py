@@ -53,11 +53,12 @@ def gemini_proxy():
             "generationConfig": {"maxOutputTokens": 1500, "temperature": 0.7}
         }
 
-        # Try multiple models as fallback
+        # Model priority: Gemini 3.1 Flash Lite = best free (500 RPD, smart, fast)
         MODELS = [
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent",
+            "https://generativelanguage.googleapis.com/v1beta/models/gemma-3-27b-it:generateContent",
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent",
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent",
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent",
         ]
 
         res = None
