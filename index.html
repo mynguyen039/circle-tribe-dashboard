@@ -1085,30 +1085,42 @@ async function execAct(act, cb){
   // LIST TASKS — render clickable rows in chat
   if(act.action==='list_tasks' && act.items?.length){
     const html = act.items.map(item=>{
-      const pid=item.id||'';
-      const st=item.status||'';
+      const pid = resolvePageId(item.id||'');
+      if(!pid && !item.name) return ''; // skip invalid
+
+      // Lookup full page from cache for accurate data
+      const cachedPage = pid ? [...ALL_TSK,...ALL_PRJ,...ALL_REP].find(p=>p.id===pid) : null;
+
+      // Use cached data if available, fallback to item fields
+      const nm  = (cachedPage ? gTitle(cachedPage) : '') || item.name || item.title || '';
+      const st  = (cachedPage ? gStatus(cachedPage) : '') || item.status || '';
+      const own = (cachedPage ? gOwner(cachedPage) : '') || item.owner || '';
+      const du  = (cachedPage ? gDue(cachedPage) : '') || item.due || '';
+
       const isDone=/done|complete/i.test(st);
-      const lt=!isDone&&isLate(item.due);
-      const td=!isDone&&isTdy(item.due);
+      const lt=!isDone&&isLate(du);
+      const td=!isDone&&isTdy(du);
+
       // Register in ALL_TSK so detail panel can find it
-      if(pid && ![...ALL_TSK,...ALL_PRJ,...ALL_REP].find(p=>p.id===pid)){
-        ALL_TSK.push({id:pid,created_time:'',properties:{
-          [TTL_KEY]:{type:'title',title:[{plain_text:item.name||''}]},
+      const finalId = pid || item.id || '';
+      if(finalId && !cachedPage){
+        ALL_TSK.push({id:finalId,created_time:'',properties:{
+          [TTL_KEY]:{type:'title',title:[{plain_text:nm}]},
           'Status':{type:'status',status:{name:st}},
-          'Assignee':{type:'people',people:[{name:item.owner||''}]},
-          'Due date':{type:'date',date:item.due?{start:item.due}:null}
+          'Assignee':{type:'people',people:[{name:own}]},
+          'Due date':{type:'date',date:du?{start:du}:null}
         }});
       }
       return `<div style="display:grid;grid-template-columns:8px 1fr 130px 100px;gap:8px;align-items:center;
         padding:7px 10px;background:var(--sf3);border:1px solid var(--br);border-radius:5px;
-        margin-bottom:3px;cursor:pointer" onclick="openDetail(event,'${pid}')">
+        margin-bottom:3px;cursor:pointer" onclick="openDetail(event,'${finalId}')">
         <div style="width:8px;height:8px;border-radius:50%;background:${scC(st)};flex-shrink:0"></div>
-        <div style="color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${item.name||'?'}</div>
+        <div style="color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${nm||'?'}</div>
         <div style="display:flex;align-items:center;gap:5px">
           <div style="width:20px;height:20px;border-radius:50%;background:var(--sf2);border:1px solid var(--br2);
             display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--gd);font-weight:700;flex-shrink:0">
-            ${ini(item.owner)}</div>
-          <span style="font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.owner||'—'}</span>
+            ${ini(own)}</div>
+          <span style="font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${own||'—'}</span>
         </div>
         <span style="font-size:10px;padding:3px 7px;border-radius:3px;${stBg(st)};white-space:nowrap">${st||'—'}</span>
       </div>`;
