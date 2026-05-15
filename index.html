@@ -986,15 +986,43 @@ async function send(){
     }
 
     let extraHtml='';
-    if(parsedAct){
-      try{ await execAct(parsedAct, (html)=>{ extraHtml=html; }); }catch(e){}
+
+    // TEXT FALLBACK: If AI says "da tao" but no JSON returned, extract and execute
+    if(!parsedAct){
+      const lr = reply.toLowerCase();
+      const hasProj = ['tao project','tạo project','da tao project','đã tạo project','create project'].some(k=>lr.includes(k));
+      if(hasProj){
+        const qm = reply.match(/[""\u201c\u201d]([^""\u201c\u201d]+)[""\u201c\u201d]/);
+        const nm = qm ? qm[1] : (reply.match(/project[:\s]+([^,\n"]{3,50})/i)||[])[1];
+        if(nm){
+          const dm = (reply.match(/(\d{4}-\d{2}-\d{2})/))||[];
+          const am = (reply.match(/(?:cho|giao|assign[a-z]*)[:\s]+([A-Za-z\u00C0-\u024F\u1E00-\u1EFF]+)/i)||[]);
+          parsedAct = {action:'create_project',name:nm.trim(),end:dm[1]||null,assignee:am[1]||null,status:'In progress'};
+          console.log('Text fallback create_project:', JSON.stringify(parsedAct));
+        }
+      }
+      if(!parsedAct){
+        const hasTask = ['tao task','tạo task','da tao task','đã tạo task'].some(k=>lr.includes(k));
+        if(hasTask){
+          const qm2 = reply.match(/[""\u201c\u201d]([^""\u201c\u201d]+)[""\u201c\u201d]/);
+          const nm2 = qm2 ? qm2[1] : (reply.match(/task[:\s]+([^,\n"]{3,50})/i)||[])[1];
+          if(nm2){
+            const dm2 = (reply.match(/(\d{4}-\d{2}-\d{2})/))||[];
+            const am2 = (reply.match(/(?:cho|giao|assign[a-z]*)[:\s]+([A-Za-z\u00C0-\u024F\u1E00-\u1EFF]+)/i)||[]);
+            parsedAct = {action:'create_task',name:nm2.trim(),due:dm2[1]||null,assignee:am2[1]||null,status:'Not started'};
+          }
+        }
+      }
     }
-    // Clean any remaining raw JSON from display text
+
+    if(parsedAct){
+      try{ await execAct(parsedAct, (html)=>{ extraHtml=html; }); }catch(e){ console.error('execAct:',e); }
+    }
+
     let finalText = disp || '✓';
     finalText = finalText.replace(/(\{[\s\S]*?"action"[\s\S]*?\})/g,'').trim() || '✓';
-    // Format markdown bold
     finalText = finalText.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
-    addM('ai', (extraHtml && !finalText.replace(/<br>/g,'').trim() ? '' : finalText) + extraHtml);
+    addM('ai', finalText + extraHtml);
   }catch(e){document.getElementById('typ')?.remove();addM('ai','❌ '+e.message);}
   document.getElementById('bsn').disabled=false;
 }
@@ -1137,6 +1165,9 @@ async function execAct(act, cb){
       await mkPg(C.tdb,props);
       toast('✅ Đã tạo task: '+(act.name||''),'ok');
       if(ALL_TSK.length) setTimeout(loadTsk,500);
+      if(cb) cb('<div style="margin-top:8px;padding:8px 10px;background:var(--sf3);border:1px solid var(--br);border-radius:5px;font-size:12px">'+
+        '<span style="color:var(--gr)">✅ Task đã tạo trên Notion</span>'+
+        '</div>');
     }catch(e){toast('Lỗi tạo task: '+e.message,'er');}
   }
 
@@ -1157,10 +1188,19 @@ async function execAct(act, cb){
       console.log('Project created:', result && result.id);
       if(result && result.id){
         ALL_PRJ.unshift(result);
-        toast('Da tao project: '+projName,'ok');
+        const notionUrl = 'https://notion.so/'+result.id.replace(/-/g,'');
+        toast('✅ Project đã tạo: '+projName,'ok');
+        console.log('Project created in Notion:', notionUrl);
         setTimeout(loadPrj, 400);
+        // Inject confirmation HTML if callback exists
+        if(cb) cb('<div style="margin-top:8px;padding:8px 10px;background:var(--sf3);border:1px solid var(--br);border-radius:5px;font-size:12px">'+
+          '<span style="color:var(--gr)">✅ Đã tạo project trên Notion:</span><br>'+
+          '<b style="color:var(--tx)">'+projName+'</b>'+
+          (who?'<br><span style="color:var(--tx3)">Assignee: '+who+'</span>':'')+
+          (endDate?'<br><span style="color:var(--tx3)">End date: '+endDate+'</span>':'')+
+          '</div>');
       } else {
-        toast('Loi: '+(result && result.message||'unknown'),'er');
+        toast('Lỗi tạo project: '+(result && result.message||'unknown'),'er');
       }
     }catch(e){
       console.error('create_project error:',e);
