@@ -1059,11 +1059,26 @@ async function updatePage(pageId, fields){
 function findPageByName(name){
   const lower = name.toLowerCase();
   const all = [...ALL_TSK,...ALL_PRJ,...ALL_REP];
-  // Exact match first
   let found = all.find(p=>gTitle(p).toLowerCase()===lower);
   if(!found) found = all.find(p=>gTitle(p).toLowerCase().includes(lower));
   if(!found) found = all.find(p=>lower.includes(gTitle(p).toLowerCase().replace(/[^a-z0-9]/g,' ').trim().slice(0,10)));
   return found||null;
+}
+
+// Resolve ID: if it looks like a UUID use it directly, otherwise find by name
+function resolvePageId(idOrName){
+  if(!idOrName) return null;
+  // UUID pattern: 8-4-4-4-12 hex or 32 hex chars
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const hex32  = /^[0-9a-f]{32}$/i;
+  if(uuidRe.test(idOrName.trim()) || hex32.test(idOrName.replace(/-/g,'').trim())){
+    return idOrName.trim(); // Already a valid ID
+  }
+  // It's a name — look up
+  const page = findPageByName(idOrName);
+  if(page) return page.id;
+  console.warn('resolvePageId: could not find page for:', idOrName);
+  return null;
 }
 
 async function execAct(act, cb){
@@ -1104,8 +1119,8 @@ async function execAct(act, cb){
 
   // UPDATE TASK / PROJECT
   if(act.action==='update_task'){
-    const pid = act.id;
-    if(!pid){ toast('Không tìm được task ID','er'); return; }
+    const pid = resolvePageId(act.id||act.name||'');
+    if(!pid){ toast('Không tìm được task: '+(act.id||act.name||'?'),'er'); return; }
     try{
       const fields = {};
       if(act.assignee) fields.assignee = act.assignee;
@@ -1148,8 +1163,8 @@ async function execAct(act, cb){
 
   // UPDATE PROJECT — same as update_task but supports project fields
   if(act.action==='update_project'){
-    const pid = act.id;
-    if(!pid){ toast('Không tìm được project ID','er'); return; }
+    const pid = resolvePageId(act.id||act.name||'');
+    if(!pid){ toast('Không tìm được project: '+(act.id||act.name||'?'),'er'); return; }
     try{
       const props={};
       // Status
@@ -1191,7 +1206,8 @@ async function execAct(act, cb){
         if(upd.due)      fields.due=upd.due;
         if(upd.status)   fields.status=upd.status;
         if(upd.priority) fields.priority=upd.priority;
-        if(Object.keys(fields).length) await updatePage(upd.id, fields);
+        const resolvedId = resolvePageId(upd.id||upd.name||'');
+        if(Object.keys(fields).length && resolvedId) await updatePage(resolvedId, fields);
         ok++;
       }catch(e){ fail++; }
     }
