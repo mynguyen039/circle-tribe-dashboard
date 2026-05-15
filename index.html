@@ -941,33 +941,24 @@ async function send(){
   const projCtx = buildProjContext();
 
   const projLine = projCtx ? ('PROJECTS:\n' + projCtx + '\n\n') : '';
-  const SYS = 'Ban la AI assistant quan ly cong viec team game dev Circle Tribe Idle (4 nguoi).\n' +
+  const SYS =
+    'Ban la AI assistant quan ly cong viec team Circle Tribe Idle (4 nguoi).\n' +
     'Hom nay: ' + TODAY() + '\n\n' +
-    'DU LIEU TASKS THUC TE TU NOTION:\n' +
-    taskCtx + '\n\n' +
-    projLine +
-    'KHI TAO TASK/PROJECT MOI, tra JSON dang sau:\n' +
-    '{"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started"}\n' +
-    '{"action":"create_project","name":"...","assignee":"...","end":"YYYY-MM-DD","status":"In progress"}\n\n' +
-    'LUON tra loi bang text day du trong chat bang tieng Viet.\n' +
-    'Khi hoi ve tasks cua ai do, loc tu du lieu thuc te va liet ke ro rang.\n' +
-    'Khi hoi report/thong ke, tinh toan tu du lieu thuc te va trinh bay trong chat.\n' +
-    'Chi dung JSON action khi can TAO MOIS hoac CAP NHAT task/project.\n\n' +
-    'LIET KE TASKS - LUON tra JSON:\n' +
-    '{"action":"list_tasks","items":[{"id":"EXACT_PAGE_ID","name":"...","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n' +
-    'id PHAI lay chinh xac tu du lieu, khong tu tao.\n\n' +
-    'TAO TASK (bat ky thu tu):\n' +
-    '{"action":"create_task","name":"...","due":"YYYY-MM-DD","status":"Not started","assignee":"...","priority":"High/Mid/Low"}\n\n' +
-    'TAO PROJECT (bat ky thu tu):\n' +
-    '{"action":"create_project","name":"...","assignee":"...","end":"YYYY-MM-DD","status":"In progress"}\n\n' +
-    'CAP NHAT TASK/PROJECT (khi muon assign/set due/doi status task co san):\n' +
-    '{"action":"update_task","id":"EXACT_PAGE_ID","assignee":"...","due":"YYYY-MM-DD","status":"...","priority":"..."}\n' +
-    'Chi dien field CAN THAY DOI, bo trong field khong doi.\n' +
-    'Neu task chua co owner, tu dong assign nguoi duoc nhac den.\n' +
-    'Neu task chua co due date, tu dong set neu user dua ra deadline.\n\n' +
-    'Viet tat: deadline=due=end, giao/assign=assignee=owner, uu tien=priority\n' +
-    'Khi update nhieu task cung luc, tra array JSON:\n' +
-    '{"action":"update_batch","updates":[{"id":"...","status":"..."},{"id":"...","assignee":"..."}]}';
+    '=== DU LIEU TASKS ===\n' + taskCtx + '\n\n' +
+    (projCtx ? '=== DU LIEU PROJECTS ===\n' + projCtx + '\n\n' : '') +
+    '=== QUAN TRONG: QUY TAC TRO LY ===\n' +
+    '1. Chi hoi them neu THIEU THONG TIN QUAN TRONG (ten task/project). Du thong tin thi THUC HIEN NGAY.\n' +
+    '2. Khi thuc hien action, tra JSON trong code block ```json...```, KHONG co them text giai thich dai dong.\n' +
+    '3. Sau JSON, chi can 1 dong xac nhan ngan gon. Khong hoi "ban co muon..." khi da du thong tin.\n' +
+    '4. Khi liet ke tasks, LUON dung action list_tasks voi id chinh xac tu du lieu.\n\n' +
+    '=== ACTIONS ===\n' +
+    'Liet ke: ```json\n{"action":"list_tasks","items":[{"id":"ID_CHINH_XAC","name":"...","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
+    'Tao task: ```json\n{"action":"create_task","name":"...","assignee":"...","due":"YYYY-MM-DD","status":"Not started","priority":"High/Mid/Low"}\n```\n' +
+    'Tao project: ```json\n{"action":"create_project","name":"...","assignee":"...","end":"YYYY-MM-DD","status":"In progress"}\n```\n' +
+    'Cap nhat: ```json\n{"action":"update_task","id":"ID_CHINH_XAC","status":"...","assignee":"...","due":"YYYY-MM-DD"}\n```\n' +
+    'Update nhieu: ```json\n{"action":"update_batch","updates":[{"id":"...","status":"..."}]}\n```\n\n' +
+    'Viet tat duoc chap nhan: deadline/due/end=due, giao/assign/owner=assignee, uu tien=priority\n' +
+    'Tra loi tieng Viet ngan gon. Thuc hien truoc, giai thich sau.'
   try{
     const res=await fetch(C.proxy+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:SYS,messages:H.slice(-10)})});
     const raw=await res.json();
@@ -975,15 +966,35 @@ async function send(){
     const reply=raw.content?.[0]?.text||raw.error||'Không có phản hồi';
     document.getElementById('typ')?.remove();
     H.push({role:'assistant',content:reply}); checkAutoSave();
-    const jm=reply.match(/```json\s*([\s\S]*?)```/);
-    const disp=reply.replace(/```json[\s\S]*?```/g,'').trim();
+    // Extract JSON - handle both ```json...``` blocks AND raw JSON objects
+    let parsedAct = null;
+    let disp = reply;
+
+    // Try code block first
+    const cbMatch = reply.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if(cbMatch){
+      try{ parsedAct = JSON.parse(cbMatch[1].trim()); }catch(e){}
+      disp = reply.replace(/```(?:json)?[\s\S]*?```/g,'').trim();
+    }
+    // Try raw JSON object/array if no code block matched
+    if(!parsedAct){
+      const rawMatch = reply.match(/(\{[\s\S]*"action"[\s\S]*\})/);
+      if(rawMatch){
+        try{ parsedAct = JSON.parse(rawMatch[1]); }catch(e){}
+        if(parsedAct) disp = reply.replace(rawMatch[1],'').trim();
+      }
+    }
+
     let extraHtml='';
-    if(jm){try{
-      const act=JSON.parse(jm[1]);
-      await execAct(act, (html)=>{ extraHtml=html; });
-    }catch(e){}}
-    const finalText = disp || reply.replace(/```json[\s\S]*?```/g,'').trim() || '✓';
-    addM('ai',finalText.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<b>$1</b>')+extraHtml);
+    if(parsedAct){
+      try{ await execAct(parsedAct, (html)=>{ extraHtml=html; }); }catch(e){}
+    }
+    // Clean any remaining raw JSON from display text
+    let finalText = disp || '✓';
+    finalText = finalText.replace(/(\{[\s\S]*?"action"[\s\S]*?\})/g,'').trim() || '✓';
+    // Format markdown bold
+    finalText = finalText.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+    addM('ai', (extraHtml && !finalText.replace(/<br>/g,'').trim() ? '' : finalText) + extraHtml);
   }catch(e){document.getElementById('typ')?.remove();addM('ai','❌ '+e.message);}
   document.getElementById('bsn').disabled=false;
 }
@@ -1130,24 +1141,31 @@ async function execAct(act, cb){
   }
 
   // CREATE PROJECT
-  if(act.action==='create_project'&&C.pdb){
+  if(act.action==='create_project'){
+    if(!C.pdb){ toast('Chua co Projects DB ID','er'); return; }
     try{
       const props={};
-      props['Project name']={title:[{text:{content:act.name||'New Project'}}]};
-      // Status
-      if(act.status) props['Status']={status:{name:act.status}};
-      // End date
+      const projName = act.name||'New Project';
+      props['Project name']={title:[{text:{content:projName}}]};
+      if(act.status){ props['Status']={status:{name:act.status}}; }
       const endDate = act.end||act.due||act.deadline||null;
       if(endDate) props['End date']={date:{start:endDate}};
-      // Assignee - try people, fallback text field
       const who = act.assignee||act.lead||act.owner||null;
-      if(who){
-        try{ props['Assignee']={rich_text:[{text:{content:who}}]}; }catch(e){}
+      if(who){ try{ props['Assignee']={rich_text:[{text:{content:who}}]}; }catch(e){} }
+      console.log('Creating project with props:', JSON.stringify(props));
+      const result = await mkPg(C.pdb, props);
+      console.log('Project created:', result && result.id);
+      if(result && result.id){
+        ALL_PRJ.unshift(result);
+        toast('Da tao project: '+projName,'ok');
+        setTimeout(loadPrj, 400);
+      } else {
+        toast('Loi: '+(result && result.message||'unknown'),'er');
       }
-      await mkPg(C.pdb,props);
-      toast('✅ Đã tạo project: '+(act.name||''),'ok');
-      if(ALL_PRJ.length) setTimeout(loadPrj,500);
-    }catch(e){toast('Lỗi tạo project: '+e.message,'er');}
+    }catch(e){
+      console.error('create_project error:',e);
+      toast('Loi tao project: '+e.message,'er');
+    }
   }
 }
 
