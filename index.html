@@ -568,7 +568,10 @@ async function testConn(){
       const el=document.getElementById('stx');el.textContent='Notion connected';el.className='stx on';
       document.getElementById('cBtn').textContent='✓ OK';document.getElementById('cBtn').disabled=true;
       toast('Kết nối thành công!','ok');
-      await detectSchema();loadRep();
+      await detectSchema();
+      // Pre-load data silently to build USER_MAP
+      autoPreload();
+      loadRep();
     }
   }catch(e){toast('Lỗi kết nối: '+e.message,'er');}
   hideLd();
@@ -864,6 +867,7 @@ async function loadTsk(){
   try{
     const d=await qDb(C.tdb);
     ALL_TSK=d.results||[];
+    buildUserMap(ALL_TSK);
     const filtered=ALL_TSK.filter(p=>matchFilter(p,TSK_FILTER));
     render('at',filtered,TSK_V,'Chưa có task nào');
   }catch(e){toast('Lỗi: '+e.message,'er');}
@@ -876,6 +880,7 @@ async function loadPrj(){
   try{
     const d=await qDb(C.pdb);
     ALL_PRJ=d.results||[];
+    buildUserMap(ALL_PRJ);
     const filtered=ALL_PRJ.filter(p=>matchFilter(p,PRJ_FILTER));
     render('ap',filtered,PRJ_V,'Chưa có project nào');
   }catch(e){toast('Lỗi: '+e.message,'er');}
@@ -1162,6 +1167,10 @@ async function execAct(act, cb){
       props[TTL_KEY]={title:[{text:{content:act.name||'New Task'}}]};
       if(act.status)props['Status']={status:{name:act.status}};
       if(act.due)props['Due date']={date:{start:act.due}};
+      if(act.assignee){
+        const pf=buildPeopleField(act.assignee);
+        if(pf) props['Assignee']=pf;
+      }
       await mkPg(C.tdb,props);
       toast('✅ Đã tạo task: '+(act.name||''),'ok');
       if(ALL_TSK.length) setTimeout(loadTsk,500);
@@ -1182,7 +1191,11 @@ async function execAct(act, cb){
       const endDate = act.end||act.due||act.deadline||null;
       if(endDate) props['End date']={date:{start:endDate}};
       const who = act.assignee||act.lead||act.owner||null;
-      if(who){ try{ props['Assignee']={rich_text:[{text:{content:who}}]}; }catch(e){} }
+      if(who){
+        const pf = buildPeopleField(who);
+        if(pf){ props['Assignee'] = pf; console.log('Assignee user found:', who); }
+        else { console.log('Assignee user not found in USER_MAP:', who, 'Map:', JSON.stringify(USER_MAP)); }
+      }
       console.log('Creating project with props:', JSON.stringify(props));
       const result = await mkPg(C.pdb, props);
       console.log('Project created:', result && result.id);
@@ -1326,6 +1339,7 @@ function checkAutoSave(){
 
 // ─── DETAIL PANEL STATE ──────────────────────────────
 let CURRENT_PAGE = null;
+let USER_MAP = {}; // name -> notion user id, built from loaded data
 let PAGE_CACHE = {};
 let SUB_DATA = {};
 let SUB_OPEN = {};
@@ -1515,6 +1529,55 @@ async function dpAddSubTask(){
 }
 
 document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') closeDetail(); });
+
+// ─── USER MAP ────────────────────────────────────────
+async function autoPreload(){
+  // Load tasks and projects silently to build USER_MAP
+  try{
+    const [t,p] = await Promise.all([
+      qDb(C.tdb).catch(()=>({results:[]})),
+      C.pdb ? qDb(C.pdb).catch(()=>({results:[]})) : Promise.resolve({results:[]})
+    ]);
+    if(!ALL_TSK.length && t.results.length) ALL_TSK = t.results;
+    if(!ALL_PRJ.length && p.results.length) ALL_PRJ = p.results;
+    buildUserMap([...ALL_TSK,...ALL_PRJ]);
+    console.log('USER_MAP built:', Object.keys(USER_MAP).join(', '));
+  }catch(e){ console.log('autoPreload error:', e); }
+}
+
+function buildUserMap(pages){
+  pages.forEach(p=>{
+    const peopleProp = Object.values(p.properties||{}).find(v=>v.type==='people');
+    if(peopleProp && peopleProp.people){
+      peopleProp.people.forEach(u=>{
+        if(u.id && u.name){
+          USER_MAP[u.name.toLowerCase()] = u.id;
+          // Also map first name
+          const first = u.name.split(' ')[0].toLowerCase();
+          if(!USER_MAP[first]) USER_MAP[first] = u.id;
+        }
+      });
+    }
+  });
+}
+
+function lookupUserId(name){
+  if(!name) return null;
+  const lower = name.toLowerCase().trim();
+  // Exact match
+  if(USER_MAP[lower]) return USER_MAP[lower];
+  // Partial match
+  for(const [k,v] of Object.entries(USER_MAP)){
+    if(k.includes(lower)||lower.includes(k)) return v;
+  }
+  return null;
+}
+
+function buildPeopleField(name){
+  const uid = lookupUserId(name);
+  if(uid) return {people:[{object:'user',id:uid}]};
+  return null; // can't set people without valid user ID
+}
 
 function showLd(t){document.getElementById('ldov').className='ld on';document.getElementById('ltxt').textContent=t;}
 function hideLd(){document.getElementById('ldov').className='ld';}
