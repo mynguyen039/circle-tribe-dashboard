@@ -593,6 +593,11 @@ async function nGet(p){
   if(!r.ok){const e=await r.json();throw new Error(e.message||'Error '+r.status);}
   return r.json();
 }
+async function nPatch(p,body){
+  const r=await fetch(C.proxy+p,{method:'PATCH',headers:{'Authorization':'Bearer '+C.token,'Notion-Version':'2022-06-28','Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){const e=await r.json();throw new Error(e.message||'Error '+r.status);}
+  return r.json();
+}
 async function nPost(p,body){
   const r=await fetch(C.proxy+p,{method:'POST',headers:{'Authorization':'Bearer '+C.token,'Notion-Version':'2022-06-28','Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){const e=await r.json();throw new Error(e.message||'Error '+r.status);}
@@ -960,7 +965,8 @@ async function send(){
     'Liet ke: ```json\n{"action":"list_tasks","items":[{"id":"ID_CHINH_XAC","name":"...","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
     'Tao task: ```json\n{"action":"create_task","name":"...","assignee":"...","due":"YYYY-MM-DD","status":"Not started","priority":"High/Mid/Low"}\n```\n' +
     'Tao project: ```json\n{"action":"create_project","name":"...","assignee":"...","end":"YYYY-MM-DD","status":"In progress"}\n```\n' +
-    'Cap nhat: ```json\n{"action":"update_task","id":"ID_CHINH_XAC","status":"...","assignee":"...","due":"YYYY-MM-DD"}\n```\n' +
+    'Cap nhat task: ```json\n{"action":"update_task","id":"ID_CHINH_XAC","status":"...","assignee":"...","due":"YYYY-MM-DD"}\n```\n' +
+    'Cap nhat project: ```json\n{"action":"update_project","id":"ID_CHINH_XAC","status":"...","assignee":"...","end":"YYYY-MM-DD"}\n```\n' +
     'Update nhieu: ```json\n{"action":"update_batch","updates":[{"id":"...","status":"..."}]}\n```\n\n' +
     'Viet tat duoc chap nhan: deadline/due/end=due, giao/assign/owner=assignee, uu tien=priority\n' +
     'Tra loi tieng Viet ngan gon. Thuc hien truoc, giai thich sau.'
@@ -1039,15 +1045,13 @@ async function updatePage(pageId, fields){
   if(fields.due)      props['Due date'] = {date:{start:fields.due}};
   if(fields.priority) props['Priority'] = {select:{name:fields.priority}};
   // Assignee: try rich_text (most compatible without user lookup)
-  if(fields.assignee) props['Assignee'] = {rich_text:[{text:{content:fields.assignee}}]};
+  if(fields.assignee){
+    const pf = buildPeopleField(fields.assignee);
+    if(pf) props['Assignee'] = pf;
+  }
 
-  const r = await fetch(C.proxy+'/api/update_page',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({page_id:pageId, properties:props})
-  });
-  const data = await r.json();
-  if(!data.ok) throw new Error(data.error||'Update failed');
+  const data = await nPatch('/pages/'+pageId, {properties:props});
+  if(!data.id) throw new Error(data.message||'Update failed');
   return data;
 }
 
@@ -1140,6 +1144,41 @@ async function execAct(act, cb){
       }
       setTimeout(()=>{ if(ALL_TSK.length)loadTsk(); },600);
     }catch(e){ toast('Lỗi update: '+e.message,'er'); }
+  }
+
+  // UPDATE PROJECT — same as update_task but supports project fields
+  if(act.action==='update_project'){
+    const pid = act.id;
+    if(!pid){ toast('Không tìm được project ID','er'); return; }
+    try{
+      const props={};
+      // Status
+      if(act.status){ props['Status']={status:{name:act.status}}; }
+      // End date
+      const endDate = act.end||act.due||act.deadline||null;
+      if(endDate) props['End date']={date:{start:endDate}};
+      // Assignee (people field)
+      const who = act.assignee||act.lead||act.owner||null;
+      if(who){
+        const pf = buildPeopleField(who);
+        if(pf) props['Assignee']=pf;
+        else console.log('User not found for update_project:', who);
+      }
+      if(!Object.keys(props).length){ toast('Không có gì để update','er'); return; }
+      const result = await nPatch('/pages/'+pid, {properties:props});
+      if(result && result.id){
+        toast('✅ Đã update project','ok');
+        // Update local cache
+        const cached = ALL_PRJ.find(p=>p.id===pid||p.id===pid.replace(/-/g,''));
+        if(cached){
+          if(props['Status']) cached.properties['Status']={type:'status',status:{name:act.status}};
+          if(props['End date']) cached.properties['End date']={type:'date',date:{start:endDate}};
+        }
+        setTimeout(loadPrj, 400);
+      } else {
+        toast('Lỗi update: '+(result&&result.message||'unknown'),'er');
+      }
+    }catch(e){ toast('Lỗi update project: '+e.message,'er'); }
   }
 
   // UPDATE BATCH
