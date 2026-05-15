@@ -515,7 +515,7 @@ window.onload=async ()=>{
         C.ok=true;
         sessionStorage.setItem('ct3',JSON.stringify(C));
         boot();
-        initChatHistory();
+        if(cfg.chat_db_id) initChatHistory(cfg.chat_db_id);
         document.getElementById('stx').textContent='Đang kết nối...';
         testConn();
         return;
@@ -1162,12 +1162,17 @@ function saveChatDbId(){
   if(v.length >= 32) loadHistList();
 }
 
-function initChatHistory(){
-  const saved = sessionStorage.getItem('chatDbId');
+function initChatHistory(serverChatDbId){
+  // Use server env var first, then sessionStorage
+  const saved = serverChatDbId || sessionStorage.getItem('chatDbId') || '';
   if(saved){
     CHAT_DB_ID_LOCAL = saved;
+    sessionStorage.setItem('chatDbId', saved);
     const el = document.getElementById('chatDbId');
     if(el) el.value = saved;
+    // Hide setup section if DB ID is known
+    const setup = document.getElementById('histSetup');
+    if(setup && saved) setup.style.display = 'none';
   }
 }
 
@@ -1259,6 +1264,199 @@ function checkAutoSave(){
     saveCurrentChat();
   }
 }
+
+
+// ─── DETAIL PANEL STATE ──────────────────────────────
+let CURRENT_PAGE = null;
+let PAGE_CACHE = {};
+let SUB_DATA = {};
+let SUB_OPEN = {};
+
+// ─── FETCH SUBTASKS ───────────────────────────────────
+async function fetchSubTasks(pid, page){
+  const props = page && page.properties ? page.properties : {};
+  const relationKeys = ['Tasks Tracker','Task Tracker','Tasks','Subtasks','Sub-tasks','Sub-item'];
+  for(const key of relationKeys){
+    const prop = props[key];
+    if(prop && prop.type === 'relation' && prop.relation && prop.relation.length){
+      try{
+        const ids = prop.relation.slice(0,20).map(r=>r.id);
+        const pages = await Promise.all(ids.map(id=>nGet('/pages/'+id).catch(()=>null)));
+        const valid = pages.filter(Boolean);
+        if(valid.length) return valid;
+      }catch(e){}
+    }
+  }
+  try{
+    const data = await nPost('/databases/'+C.tdb+'/query',{
+      filter:{property:'Parent item',relation:{contains:pid}}
+    });
+    if(data.results && data.results.length) return data.results;
+  }catch(e){}
+  try{
+    const blocks = await nGet('/blocks/'+pid+'/children');
+    const kids = (blocks.results||[]).filter(b=>b.type==='child_page');
+    if(kids.length) return kids.map(b=>({
+      id:b.id,
+      properties:{[TTL_KEY]:{type:'title',title:[{plain_text:b.child_page&&b.child_page.title?b.child_page.title:'Subtask'}]}},
+      created_time:b.created_time||''
+    }));
+  }catch(e){}
+  return [];
+}
+
+// ─── OPEN DETAIL ──────────────────────────────────────
+async function openDetail(e, pid){
+  if(e) e.stopPropagation();
+  if(!pid) return;
+
+  // Find page in all caches
+  const allPages = [...ALL_TSK,...ALL_PRJ,...ALL_REP];
+  let page = allPages.find(p=>p.id===pid||p.id===pid.replace(/-/g,''));
+  if(!page){
+    for(const arr of Object.values(SUB_DATA)){
+      const f = arr.find(p=>p.id===pid);
+      if(f){page=f;break;}
+    }
+  }
+  if(!page) page = {id:pid, properties:{}, created_time:''};
+
+  CURRENT_PAGE = page;
+  document.getElementById('dpTitle').textContent = gTitle(page)||'Loading...';
+  document.getElementById('dpBody').innerHTML = '<div style="padding:20px;text-align:center;color:var(--tx3);font-size:13px">Đang tải...</div>';
+  document.getElementById('dpOverlay').className = 'detail-overlay open';
+  document.getElementById('dpPanel').className = 'detail-panel open';
+
+  try{
+    const [fullPage, blocks] = await Promise.all([
+      nGet('/pages/'+pid),
+      nGet('/blocks/'+pid+'/children').catch(()=>({results:[]}))
+    ]);
+    CURRENT_PAGE = fullPage;
+    document.getElementById('dpTitle').textContent = gTitle(fullPage);
+    const subs = await fetchSubTasks(pid, fullPage);
+    PAGE_CACHE[pid] = {fullPage, blocks, subs};
+    renderDetail(fullPage, blocks, subs);
+  }catch(e){
+    renderDetail(page, null, []);
+  }
+}
+
+// ─── RENDER DETAIL ────────────────────────────────────
+function renderDetail(page, blocks, subs){
+  const nm=gTitle(page), ow=gOwner(page), du=gDue(page), st=gStatus(page);
+  const cb=gCreatedBy(page), ct=gCreatedAt(page);
+  const isDone=/done|complete/i.test(st);
+  const lt=!isDone&&isLate(du), td=!isDone&&isTdy(du);
+  const pri=gp(page,'Priority','priority');
+
+  // Estimated Hours - try multiple field names
+  let estH = '';
+  const ehKeys = ['Estimated Hours','Estimate','Hours','Est Hours','estimated_hours'];
+  for(const k of ehKeys){ estH = gp(page,k); if(estH) break; }
+
+  // Description from blocks
+  let desc = '';
+  if(blocks && blocks.results){
+    const textTypes = ['paragraph','heading_1','heading_2','heading_3','bulleted_list_item','numbered_list_item','to_do','quote'];
+    desc = blocks.results
+      .filter(b=>textTypes.includes(b.type))
+      .map(b=>{
+        const rt = b[b.type] && b[b.type].rich_text ? b[b.type].rich_text : [];
+        return rt.map(t=>t.plain_text||'').join('');
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  const html = `
+    <div class="dp-grid">
+      <div class="dp-row">
+        <div class="dp-lbl">Status</div>
+        <span class="st-badge" style="${stBg(st)}">${st||'—'}</span>
+      </div>
+      <div class="dp-row">
+        <div class="dp-lbl">Priority</div>
+        <div class="dp-val">${pri||'—'}</div>
+      </div>
+    </div>
+    <div class="dp-divider"></div>
+    <div class="dp-grid">
+      <div class="dp-row">
+        <div class="dp-lbl">Assignee</div>
+        <div class="assignee-cell">
+          <div class="aav" style="width:26px;height:26px;font-size:10px">${ini(ow)}</div>
+          <div class="dp-val">${ow||'—'}</div>
+        </div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-lbl">Due date</div>
+        <div class="dp-val ${lt?'lt':td?'td':''}" style="${lt?'color:var(--re)':td?'color:var(--gr)':''}">${fmtD(du)||'—'}</div>
+      </div>
+    </div>
+    <div class="dp-grid">
+      <div class="dp-row">
+        <div class="dp-lbl">Est. Hours</div>
+        <div class="dp-val">${estH||'—'}</div>
+      </div>
+      <div class="dp-row">
+        <div class="dp-lbl">Created</div>
+        <div class="dp-val muted">${cb?cb+' · ':''} ${ct||'—'}</div>
+      </div>
+    </div>
+    <div class="dp-divider"></div>
+    <div class="dp-row">
+      <div class="dp-lbl">Description</div>
+      <div class="dp-desc ${desc?'':'empty'}">${desc?desc.replace(/\n/g,'<br>'):'Chưa có mô tả'}</div>
+    </div>
+    <div class="dp-divider"></div>
+    <div>
+      <div class="dp-sub-title">Tasks liên quan <span style="color:var(--tx3);font-weight:400">(${subs?subs.length:0})</span></div>
+      <div class="dp-sub-list">
+        ${subs && subs.length ? subs.map(s=>{
+          const sn=gTitle(s), ss=gStatus(s), sd=gDue(s);
+          const sl=!(/done|complete/i.test(ss))&&isLate(sd);
+          return '<div class="dp-sub-item" onclick="openDetail(event,\''+s.id+'\')">'+
+            '<div class="rd" style="background:'+scC(ss)+'"></div>'+
+            '<div class="dp-sub-name">'+sn+'</div>'+
+            '<span class="st-badge" style="'+stBg(ss)+';font-size:10px">'+ss+'</span>'+
+            (sd?'<div class="dp-sub-st '+(sl?'lt':'')+'" style="'+(sl?'color:var(--re)':'')+';font-size:11px">'+fmtD(sd)+'</div>':'')+'</div>';
+        }).join('') : '<div class="dp-val muted" style="font-size:13px;padding:4px 0">Chưa có task liên quan</div>'}
+      </div>
+    </div>`;
+
+  document.getElementById('dpBody').innerHTML = html;
+}
+
+// ─── CLOSE DETAIL ─────────────────────────────────────
+function closeDetail(){
+  document.getElementById('dpOverlay').className = 'detail-overlay';
+  document.getElementById('dpPanel').className = 'detail-panel';
+  CURRENT_PAGE = null;
+}
+
+async function dpAddSubTask(){
+  if(!CURRENT_PAGE) return;
+  const name = prompt('Tên task mới:');
+  if(!name) return;
+  const pid = CURRENT_PAGE.id;
+  showLd('Đang tạo task...');
+  try{
+    const props = {};
+    props[TTL_KEY] = {title:[{text:{content:name}}]};
+    props['Status'] = {status:{name:'Not started'}};
+    try{ props['Parent item'] = {relation:[{id:pid}]}; }catch(ex){}
+    await mkPg(C.tdb, props);
+    toast('Đã tạo: '+name,'ok');
+    const fullPage = await nGet('/pages/'+pid).catch(()=>CURRENT_PAGE);
+    const subs = await fetchSubTasks(pid, fullPage);
+    PAGE_CACHE[pid] = {...(PAGE_CACHE[pid]||{}), fullPage, subs};
+    renderDetail(fullPage, PAGE_CACHE[pid].blocks||null, subs);
+  }catch(ex){ toast('Lỗi: '+ex.message,'er'); }
+  hideLd();
+}
+
+document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') closeDetail(); });
 
 function showLd(t){document.getElementById('ldov').className='ld on';document.getElementById('ltxt').textContent=t;}
 function hideLd(){document.getElementById('ldov').className='ld';}

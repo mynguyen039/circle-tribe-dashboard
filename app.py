@@ -25,7 +25,7 @@ def index():
 def api_config():
     # Returns server config so frontend doesn't need manual token input
     return Response(
-        json.dumps({"notion_token": NOTION_TOKEN, "has_ai": bool(GEMINI_KEY)}),
+        json.dumps({"notion_token": NOTION_TOKEN, "has_ai": bool(GEMINI_KEY), "chat_db_id": CHAT_DB_ID}),
         headers={**CORS_HEADERS, "Content-Type": "application/json"}
     )
 
