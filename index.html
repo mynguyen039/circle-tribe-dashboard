@@ -1035,6 +1035,8 @@ async function send(){
     '4. Khi liet ke tasks, LUON dung action list_tasks voi id chinh xac tu du lieu.\n\n' +
     '=== ACTIONS ===\n' +
     'Liet ke tasks: ```json\n{"action":"list_tasks","items":[{"id":"ID_CHINH_XAC","name":"ten task","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
+    'QUAN TRONG: Khi hoi ve tasks/projects cua 1 nguoi, LUON tra ca task va project cua nguoi do.\n' +
+    'Dung 2 JSON block lien tiep, 1 cho tasks va 1 cho projects neu co.\n' +
     'Liet ke projects: ```json\n{"action":"list_projects","items":[{"id":"ID_CHINH_XAC","name":"ten project","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
     'LUU Y: id PHAI la UUID chinh xac tu du lieu, KHONG dung ten. Neu khong co UUID thi dung ten de app tu resolve.\n' +
     'Tao task: ```json\n{"action":"create_task","name":"...","assignee":"...","due":"YYYY-MM-DD","status":"Not started","priority":"High/Mid/Low"}\n```\n' +
@@ -1051,16 +1053,25 @@ async function send(){
     const reply=raw.content?.[0]?.text||raw.error||'Không có phản hồi';
     document.getElementById('typ')?.remove();
     H.push({role:'assistant',content:reply}); checkAutoSave();
-    // Extract JSON - handle both ```json...``` blocks AND raw JSON objects
-    let parsedAct = null;
+    // Extract ALL JSON blocks from reply
     let disp = reply;
+    let parsedActs = [];
 
-    // Try code block first
-    const cbMatch = reply.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if(cbMatch){
-      try{ parsedAct = JSON.parse(cbMatch[1].trim()); }catch(e){}
+    // Find all ```json...``` blocks
+    const allBlocks = [...reply.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
+    if(allBlocks.length){
+      for(const m of allBlocks){
+        try{ parsedActs.push(JSON.parse(m[1].trim())); }catch(e){}
+      }
       disp = reply.replace(/```(?:json)?[\s\S]*?```/g,'').trim();
     }
+    // Fallback: try raw JSON if no code blocks
+    if(!parsedActs.length){
+      const rawMatch = reply.match(/(\{[\s\S]*?"action"[\s\S]*?\})/);
+      if(rawMatch){ try{ parsedActs.push(JSON.parse(rawMatch[1])); disp=reply.replace(rawMatch[1],'').trim(); }catch(e){} }
+    }
+    // Legacy compat
+    const parsedAct = parsedActs[0] || null;
     // Try raw JSON object/array if no code block matched
     if(!parsedAct){
       const rawMatch = reply.match(/(\{[\s\S]*"action"[\s\S]*\})/);
@@ -1100,8 +1111,11 @@ async function send(){
       }
     }
 
-    if(parsedAct){
-      try{ await execAct(parsedAct, (html)=>{ extraHtml=html; }); }catch(e){ console.error('execAct:',e); }
+    // Execute all JSON blocks (e.g. list_tasks + list_projects both)
+    if(parsedActs.length){
+      for(const act of parsedActs){
+        try{ await execAct(act, (html)=>{ extraHtml += html; }); }catch(e){ console.error('execAct:',e); }
+      }
     }
 
     let finalText = disp || '✓';
@@ -1799,6 +1813,10 @@ async function mirrorToTeamChat(userMsg, aiReply){
         body: JSON.stringify({content:replyClean, role:'ai', member:'AI'})
       });
       console.log('AI reply posted:', r2.status);
+    }
+    // Auto-refresh team feed if currently viewing it
+    if(document.getElementById('v-team')?.classList.contains('on')){
+      setTimeout(loadTeamChat, 600);
     }
   }catch(e){ console.log('mirror error:', e.message); }
 }
