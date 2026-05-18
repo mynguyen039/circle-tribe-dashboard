@@ -498,16 +498,16 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
 <!-- TEAM CHAT VIEW -->
 <div class="flex-view" id="v-team">
   <div class="vhbar">
-    <span class="vt" style="flex:1">👥 Team Chat</span>
+    <span class="vt" style="flex:1">📡 Team Activity Feed</span>
     <span class="tc-live" id="tcLive" style="display:none">
-      <span class="tc-live-dot"></span>Live
+      <span class="tc-live-dot"></span>Live · refresh mỗi 5s
     </span>
     <span style="font-size:11px;color:var(--tx3)" id="tcStatus">Chưa bật</span>
     <button class="btno" onclick="loadTeamChat()">⟳</button>
   </div>
-  <div style="padding:8px 16px;background:var(--sf);border-bottom:1px solid var(--br);font-size:11px;color:var(--tx3)" id="tcInfo">
-    Cần set <b style="color:var(--tx2)">TEAM_CHAT_DB_ID</b> trong Render Environment để dùng Team Chat.
-    Tạo Notion DB mới tên "Team Chat" với cột: Name(title), Role(select), Member(text) → copy ID vào Render.
+  <div style="padding:8px 12px;background:var(--sf);border-bottom:1px solid var(--br);font-size:11px;color:var(--tx3);line-height:1.6" id="tcInfo">
+    Cần set <b style="color:var(--tx2)">TEAM_CHAT_DB_ID</b> trong Render.<br>
+    Dùng DB <b style="color:var(--gd)">Chat history</b> có sẵn: ID = <code style="color:var(--gd2)">36045d0772af803b94e7e8d26071491f</code>
   </div>
   <div class="tc-msgs" id="tcMsgs">
     <div class="em">Chưa có tin nhắn nào</div>
@@ -629,6 +629,8 @@ async function testConn(){
       await detectSchema();
       autoPreload();
       initTeamChat();
+      // Check team chat availability silently
+      if(isRender()) checkTeamChatEnabled();
       loadRep();
     }
   }catch(e){toast('Lỗi kết nối: '+e.message,'er');}
@@ -1096,6 +1098,8 @@ async function send(){
     finalText = finalText.replace(/(\{[\s\S]*?"action"[\s\S]*?\})/g,'').trim() || '✓';
     finalText = finalText.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
     addM('ai', finalText + extraHtml);
+    // Mirror activity to Team Chat feed (non-blocking)
+    if(TC_ENABLED && TC_MEMBER) mirrorToTeamChat(txt, finalText).catch(()=>{});
   }catch(e){document.getElementById('typ')?.remove();addM('ai','❌ '+e.message);}
   document.getElementById('bsn').disabled=false;
 }
@@ -1753,11 +1757,44 @@ function updateMemberName(val){
   if(tc) tc.value = TC_MEMBER;
 }
 
+
+// ─── MIRROR AI CHAT TO TEAM FEED ──────────────────────
+async function mirrorToTeamChat(userMsg, aiReply){
+  if(!TC_ENABLED || !TEAM_CHAT_DB_ID_VAR) return;
+  const member = TC_MEMBER || localStorage.getItem('tc_member') || 'Unknown';
+  try{
+    // Post user message
+    await fetch(C.proxy+'/api/team_chat/post',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        content: userMsg,
+        role: 'user',
+        member: member
+      })
+    });
+    // Post AI reply (trimmed)
+    const replyText = aiReply.replace(/<[^>]*>/g,'').trim().slice(0,500);
+    if(replyText){
+      await fetch(C.proxy+'/api/team_chat/post',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          content: replyText,
+          role: 'ai',
+          member: 'AI → '+member
+        })
+      });
+    }
+  }catch(e){ /* silent fail - don't interrupt AI chat */ }
+}
+
+// Lazily get TEAM_CHAT_DB_ID from server config
+let TEAM_CHAT_DB_ID_VAR = '';
 async function checkTeamChatEnabled(){
   try{
     const r = await fetch(C.proxy+'/api/team_chat/config');
     const d = await r.json();
     TC_ENABLED = d.enabled;
+    TEAM_CHAT_DB_ID_VAR = d.db_id || '';
     const st = document.getElementById('tcStatus');
     const info = document.getElementById('tcInfo');
     const live = document.getElementById('tcLive');
@@ -1772,6 +1809,8 @@ async function checkTeamChatEnabled(){
     }
   }catch(e){}
 }
+
+
 
 async function loadTeamChat(){
   if(!TC_ENABLED) return;

@@ -104,7 +104,7 @@ def team_chat_list():
 
 @app.route("/api/team_chat/config", methods=["GET"])
 def team_chat_config():
-    return Response(json.dumps({"enabled": bool(TEAM_CHAT_DB_ID)}),
+    return Response(json.dumps({"enabled": bool(TEAM_CHAT_DB_ID), "db_id": TEAM_CHAT_DB_ID}),
                     headers={**CORS_HEADERS,"Content-Type":"application/json"})
 
 @app.route("/api/chat/save", methods=["POST", "OPTIONS"])
