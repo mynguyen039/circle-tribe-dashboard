@@ -734,9 +734,10 @@ function ini(n){if(!n)return'?';return n.split(' ').map(w=>w[0]||'').join('').to
 function matchFilter(page, filter){
   if(filter==='all')return true;
   const s=gStatus(page).toLowerCase();
-  if(filter==='progress')return s.includes('progress')||s.includes('doing');
-  if(filter==='done')return s.includes('done')||s.includes('complete')||s.includes('archive');
-  if(filter==='todo')return s.includes('not started')||s.includes('todo')||(!s);
+  const isDone = s.includes('done')||s.includes('complete');
+  if(filter==='progress')return (s.includes('progress')||s.includes('doing')) && !isDone;
+  if(filter==='done')return isDone || s.includes('archive');
+  if(filter==='todo')return !isDone && (s.includes('not started')||s.includes('todo')||(!s));
   if(filter==='block')return s.includes('block')||s.includes('past due');
   return true;
 }
@@ -918,6 +919,7 @@ async function loadRep(){
     const prog=ALL_REP.filter(p=>matchFilter(p,'progress'));
     const todo=ALL_REP.filter(p=>matchFilter(p,'todo'));
     const done=ALL_REP.filter(p=>matchFilter(p,'done'));
+    // Sanity: ensure no done tasks in progress/todo counts
     document.getElementById('s-prog').textContent=prog.length;
     document.getElementById('s-todo').textContent=todo.length;
     document.getElementById('s-done').textContent=done.length;
@@ -1107,7 +1109,7 @@ async function send(){
     finalText = finalText.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
     addM('ai', finalText + extraHtml);
     // Mirror activity to Team Chat feed (non-blocking)
-    if(TC_ENABLED && TC_MEMBER) mirrorToTeamChat(txt, finalText).catch(()=>{});
+    mirrorToTeamChat(txt, finalText).catch(()=>{}); // mirror all AI chat to team feed
   }catch(e){document.getElementById('typ')?.remove();addM('ai','❌ '+e.message);}
   document.getElementById('bsn').disabled=false;
 }
@@ -1781,23 +1783,24 @@ function updateMemberName(val){
 // ─── MIRROR AI CHAT TO TEAM FEED ──────────────────────
 async function mirrorToTeamChat(userMsg, aiReply){
   const member = TC_MEMBER || localStorage.getItem('tc_member') || '';
-  if(!member) return; // must have a name to post
+  if(!member){ console.log('mirror skipped: no member name'); return; }
   const proxy = C.proxy || (isRender() ? window.location.origin : '');
+  console.log('Mirroring to team feed, member:', member);
   try{
-    // Post user message with member name
-    await fetch(proxy+'/api/team_chat/post',{
+    const r1 = await fetch(proxy+'/api/team_chat/post',{
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({content:userMsg, role:'user', member:member})
     });
-    // Post AI reply (strip HTML tags, trim to 800 chars)
+    console.log('User msg posted:', r1.status);
     const replyClean = aiReply.replace(/<[^>]*>/g,'').replace(/\n+/g,' ').trim().slice(0,800);
     if(replyClean && replyClean !== '✓'){
-      await fetch(proxy+'/api/team_chat/post',{
+      const r2 = await fetch(proxy+'/api/team_chat/post',{
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({content:replyClean, role:'ai', member:'AI'})
       });
+      console.log('AI reply posted:', r2.status);
     }
-  }catch(e){ /* silent - never interrupt AI chat */ }
+  }catch(e){ console.log('mirror error:', e.message); }
 }
 
 // Lazily get TEAM_CHAT_DB_ID from server config
