@@ -1022,7 +1022,9 @@ async function send(){
     '3. Sau JSON, chi can 1 dong xac nhan ngan gon. Khong hoi "ban co muon..." khi da du thong tin.\n' +
     '4. Khi liet ke tasks, LUON dung action list_tasks voi id chinh xac tu du lieu.\n\n' +
     '=== ACTIONS ===\n' +
-    'Liet ke: ```json\n{"action":"list_tasks","items":[{"id":"ID_CHINH_XAC","name":"...","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
+    'Liet ke tasks: ```json\n{"action":"list_tasks","items":[{"id":"ID_CHINH_XAC","name":"ten task","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
+    'Liet ke projects: ```json\n{"action":"list_projects","items":[{"id":"ID_CHINH_XAC","name":"ten project","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
+    'LUU Y: id PHAI la UUID chinh xac tu du lieu, KHONG dung ten. Neu khong co UUID thi dung ten de app tu resolve.\n' +
     'Tao task: ```json\n{"action":"create_task","name":"...","assignee":"...","due":"YYYY-MM-DD","status":"Not started","priority":"High/Mid/Low"}\n```\n' +
     'Tao project: ```json\n{"action":"create_project","name":"...","assignee":"...","end":"YYYY-MM-DD","status":"In progress"}\n```\n' +
     'Cap nhat task: ```json\n{"action":"update_task","id":"ID_CHINH_XAC","status":"...","assignee":"...","due":"YYYY-MM-DD"}\n```\n' +
@@ -1143,6 +1145,11 @@ function resolvePageId(idOrName){
 
 async function execAct(act, cb){
   // LIST TASKS — render clickable rows in chat
+  // LIST PROJECTS — same render as list_tasks
+  if(act.action==='list_projects' && act.items?.length){
+    act.action = 'list_tasks'; // reuse same render logic
+  }
+
   if(act.action==='list_tasks' && act.items?.length){
     const html = act.items.map(item=>{
       const pid = resolvePageId(item.id||'');
@@ -1659,20 +1666,24 @@ document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') closeDetail(); 
 
 // ─── USER MAP ────────────────────────────────────────
 async function autoPreload(){
-  // Small delay to ensure C.token is fully set
-  await new Promise(r=>setTimeout(r,300));
-  if(!C.token || !C.tdb){ return; }
-  // Load tasks and projects silently to build USER_MAP
+  // Wait for C to be fully set
+  let tries = 0;
+  while((!C.token || !C.tdb) && tries < 20){ await new Promise(r=>setTimeout(r,200)); tries++; }
+  if(!C.token || !C.tdb){ console.log('autoPreload: no token/tdb after wait'); return; }
   try{
-    const [t,p] = await Promise.all([
-      qDb(C.tdb).catch(()=>({results:[]})),
-      C.pdb ? qDb(C.pdb).catch(()=>({results:[]})) : Promise.resolve({results:[]})
+    // Use explicit proxy to avoid race condition
+    const proxy = C.proxy || (isRender() ? window.location.origin : '');
+    const headers = {'Authorization':'Bearer '+C.token,'Notion-Version':'2022-06-28','Content-Type':'application/json'};
+    const [tr, pr] = await Promise.all([
+      fetch(proxy+'/databases/'+C.tdb+'/query',{method:'POST',headers,body:'{}'}).then(r=>r.json()).catch(()=>({results:[]})),
+      C.pdb ? fetch(proxy+'/databases/'+C.pdb+'/query',{method:'POST',headers,body:'{}'}).then(r=>r.json()).catch(()=>({results:[]})) : Promise.resolve({results:[]})
     ]);
-    if(!ALL_TSK.length && t.results.length) ALL_TSK = t.results;
-    if(!ALL_PRJ.length && p.results.length) ALL_PRJ = p.results;
+    if(tr.results && tr.results.length){ ALL_TSK = tr.results; ALL_REP = tr.results; }
+    if(pr.results && pr.results.length){ ALL_PRJ = pr.results; }
     buildUserMap([...ALL_TSK,...ALL_PRJ]);
-    console.log('USER_MAP built:', Object.keys(USER_MAP).join(', '));
-  }catch(e){ console.log('autoPreload error:', e); }
+    console.log('autoPreload OK — tasks:'+ALL_TSK.length+' projects:'+ALL_PRJ.length);
+    console.log('USER_MAP:', Object.keys(USER_MAP).join(', '));
+  }catch(e){ console.log('autoPreload error:', e.message); }
 }
 
 function buildUserMap(pages){
