@@ -34,6 +34,79 @@ def api_config():
 # CHAT HISTORY ENDPOINTS
 CHAT_DB_ID = os.environ.get("CHAT_DB_ID", "")
 
+# ─── TEAM SHARED CHAT ────────────────────────────────
+TEAM_CHAT_DB_ID = os.environ.get("TEAM_CHAT_DB_ID", "")
+
+@app.route("/api/team_chat/post", methods=["POST", "OPTIONS"])
+def team_chat_post():
+    if request.method == "OPTIONS":
+        return Response("", headers=CORS_HEADERS)
+    try:
+        body = request.get_json()
+        db_id = TEAM_CHAT_DB_ID
+        if not db_id:
+            return Response(json.dumps({"error":"No TEAM_CHAT_DB_ID"}), status=400,
+                            headers={**CORS_HEADERS,"Content-Type":"application/json"})
+        page = {
+            "parent": {"database_id": db_id},
+            "properties": {
+                "Name": {"title": [{"text": {"content": body.get("content","")[:1900]}}]},
+                "Role": {"select": {"name": body.get("role","user")}},
+                "Member": {"rich_text": [{"text": {"content": body.get("member","")}}]}
+            }
+        }
+        res = requests.post("https://api.notion.com/v1/pages",
+            headers={"Authorization":"Bearer "+NOTION_TOKEN,"Notion-Version":"2022-06-28","Content-Type":"application/json"},
+            json=page, timeout=30)
+        data = res.json()
+        return Response(json.dumps({"ok": res.status_code==200, "id": data.get("id","")}),
+                        headers={**CORS_HEADERS,"Content-Type":"application/json"})
+    except Exception as e:
+        return Response(json.dumps({"error":str(e)}), status=500,
+                        headers={**CORS_HEADERS,"Content-Type":"application/json"})
+
+@app.route("/api/team_chat/list", methods=["GET", "OPTIONS"])
+def team_chat_list():
+    if request.method == "OPTIONS":
+        return Response("", headers=CORS_HEADERS)
+    try:
+        db_id = TEAM_CHAT_DB_ID
+        since_id = request.args.get("since","")
+        if not db_id:
+            return Response(json.dumps({"messages":[]}),
+                            headers={**CORS_HEADERS,"Content-Type":"application/json"})
+        res = requests.post("https://api.notion.com/v1/databases/"+db_id+"/query",
+            headers={"Authorization":"Bearer "+NOTION_TOKEN,"Notion-Version":"2022-06-28","Content-Type":"application/json"},
+            json={"sorts":[{"timestamp":"created_time","direction":"ascending"}],"page_size":50},
+            timeout=30)
+        data = res.json()
+        messages = []
+        found_since = not since_id
+        for page in data.get("results",[]):
+            pid = page.get("id","")
+            if not found_since:
+                if pid == since_id: found_since = True
+                continue
+            props = page.get("properties",{})
+            content_list = props.get("Name",{}).get("title",[])
+            content_txt = content_list[0].get("plain_text","") if content_list else ""
+            role = props.get("Role",{}).get("select",{})
+            role_name = role.get("name","user") if role else "user"
+            member_rt = props.get("Member",{}).get("rich_text",[])
+            member = member_rt[0].get("plain_text","") if member_rt else ""
+            messages.append({"id":pid,"content":content_txt,"role":role_name,"member":member,
+                             "time":page.get("created_time","")[:16]})
+        return Response(json.dumps({"messages":messages}),
+                        headers={**CORS_HEADERS,"Content-Type":"application/json"})
+    except Exception as e:
+        return Response(json.dumps({"messages":[],"error":str(e)}),
+                        headers={**CORS_HEADERS,"Content-Type":"application/json"})
+
+@app.route("/api/team_chat/config", methods=["GET"])
+def team_chat_config():
+    return Response(json.dumps({"enabled": bool(TEAM_CHAT_DB_ID)}),
+                    headers={**CORS_HEADERS,"Content-Type":"application/json"})
+
 @app.route("/api/chat/save", methods=["POST", "OPTIONS"])
 def save_chat():
     if request.method == "OPTIONS":

@@ -221,6 +221,29 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
 
 /* CHAT HISTORY */
 .hist-wrap{display:flex;flex-direction:column;gap:4px}
+/* TEAM CHAT */
+.tc-wrap{display:flex;flex-direction:column;height:100%}
+.tc-msgs{flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:8px}
+.tc-msg{display:flex;gap:8px;max-width:85%}
+.tc-msg.ai{align-self:flex-start}
+.tc-msg.user{align-self:flex-end;flex-direction:row-reverse}
+.tc-bubble{padding:9px 13px;border-radius:8px;font-size:13px;line-height:1.6;word-break:break-word;max-width:100%}
+.tc-msg.ai .tc-bubble{background:var(--sf2);border:1px solid var(--br)}
+.tc-msg.user .tc-bubble{background:var(--sf3);border:1px solid var(--br2)}
+.tc-meta{font-size:10px;color:var(--tx3);margin-top:3px}
+.tc-msg.user .tc-meta{text-align:right}
+.tc-av{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;font-family:var(--fh);font-weight:700}
+.tc-msg.ai .tc-av{background:var(--gdm);color:var(--gd2)}
+.tc-msg.user .tc-av{background:var(--sf3);border:1px solid var(--br2);color:var(--gd);font-size:11px}
+.tc-input-row{padding:10px 16px;border-top:1px solid var(--br);background:var(--sf);display:flex;gap:8px;align-items:flex-end;flex-shrink:0}
+.tc-name{background:var(--sf2);border:1px solid var(--br2);color:var(--gd);font-family:var(--fm);font-size:12px;padding:8px 10px;border-radius:5px;outline:none;width:100px;flex-shrink:0}
+.tc-name:focus{border-color:var(--gdm)}
+.tc-inp{flex:1;background:var(--sf2);border:1px solid var(--br2);color:var(--tx);font-family:var(--fm);font-size:13px;padding:9px 12px;border-radius:6px;resize:none;outline:none;min-height:40px;max-height:100px;line-height:1.5}
+.tc-inp:focus{border-color:var(--gdm)}
+.tc-send{background:var(--gd);color:#000;border:none;border-radius:6px;padding:9px 16px;cursor:pointer;font-family:var(--fm);font-size:12px;font-weight:500;height:40px}
+.tc-send:hover{background:var(--gd2)}
+.tc-live{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--gr)}
+.tc-live-dot{width:6px;height:6px;border-radius:50%;background:var(--gr);animation:bk 2s infinite}
 .hist-item{display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--sf);border:1px solid var(--br);border-radius:6px;cursor:pointer}
 .hist-item:hover{border-color:var(--br2);background:var(--sf2)}
 .hist-title{flex:1;font-size:14px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -267,6 +290,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
       <div class="nv" id="n-tsk" onclick="go('tsk')"><span class="ni">✅</span>All Tasks</div>
       <div class="nv" id="n-prj" onclick="go('prj')"><span class="ni">🗂</span>Projects</div>
       <div class="nv" id="n-hist" onclick="go('hist')"><span class="ni">🕐</span>Chat History</div>
+      <div class="nv" id="n-team" onclick="go('team')"><span class="ni">👥</span>Team Chat</div>
     </div>
     <div class="hr"></div>
     <div>
@@ -275,6 +299,17 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
       <div class="dbg ok"><span class="dn">🗂 Projects</span>Connected</div>
     </div>
     <div class="sbot">
+      <div style="margin-bottom:10px">
+        <div style="font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Tên của bạn</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div id="sbAvatar" style="width:26px;height:26px;border-radius:50%;background:var(--gdm);color:var(--gd2);display:flex;align-items:center;justify-content:center;font-size:11px;font-family:var(--fh);font-weight:700;flex-shrink:0">?</div>
+          <input id="memberName" placeholder="Nhập tên..." 
+            style="flex:1;background:var(--sf2);border:1px solid var(--br2);color:var(--tx);font-family:var(--fm);font-size:12px;padding:5px 8px;border-radius:4px;outline:none;width:0"
+            oninput="updateMemberName(this.value)"
+            onfocus="this.style.borderColor='var(--gdm)'"
+            onblur="this.style.borderColor='var(--br2)'">
+        </div>
+      </div>
       <div class="clk" id="clk">--:--</div>
       <div class="ds" id="dstr">--</div>
       <div style="margin-top:4px;font-size:10px;color:var(--tx3)">⏰ Auto: 10:00</div>
@@ -460,6 +495,29 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fm);font-size:var(--
   </div>
 </div>
 
+<!-- TEAM CHAT VIEW -->
+<div class="flex-view" id="v-team">
+  <div class="vhbar">
+    <span class="vt" style="flex:1">👥 Team Chat</span>
+    <span class="tc-live" id="tcLive" style="display:none">
+      <span class="tc-live-dot"></span>Live
+    </span>
+    <span style="font-size:11px;color:var(--tx3)" id="tcStatus">Chưa bật</span>
+    <button class="btno" onclick="loadTeamChat()">⟳</button>
+  </div>
+  <div style="padding:8px 16px;background:var(--sf);border-bottom:1px solid var(--br);font-size:11px;color:var(--tx3)" id="tcInfo">
+    Cần set <b style="color:var(--tx2)">TEAM_CHAT_DB_ID</b> trong Render Environment để dùng Team Chat.
+    Tạo Notion DB mới tên "Team Chat" với cột: Name(title), Role(select), Member(text) → copy ID vào Render.
+  </div>
+  <div class="tc-msgs" id="tcMsgs">
+    <div class="em">Chưa có tin nhắn nào</div>
+  </div>
+  <div class="tc-input-row">
+    <textarea class="tc-inp" id="tcInp" placeholder="Nhắn cho team... (Enter gửi)" rows="1"></textarea>
+    <button class="tc-send" onclick="sendTeamMsg()">Gửi ↵</button>
+  </div>
+</div>
+
 <!-- DETAIL PANEL -->
 <div class="detail-overlay" id="dpOverlay" onclick="closeDetail()"></div>
 <div class="detail-panel" id="dpPanel">
@@ -569,8 +627,8 @@ async function testConn(){
       document.getElementById('cBtn').textContent='✓ OK';document.getElementById('cBtn').disabled=true;
       toast('Kết nối thành công!','ok');
       await detectSchema();
-      // Pre-load data silently to build USER_MAP
       autoPreload();
+      initTeamChat();
       loadRep();
     }
   }catch(e){toast('Lỗi kết nối: '+e.message,'er');}
@@ -828,6 +886,7 @@ async function doCreate(){
 
 // NAV
 function go(v){
+  if(document.getElementById('v-team')?.classList.contains('on') && v!=='team') stopTeamPoll();
   document.querySelectorAll('.cv,.vw,.flex-view').forEach(e=>e.classList.remove('on'));
   document.querySelectorAll('.nv').forEach(e=>e.classList.remove('on'));
   document.getElementById('v-'+v)?.classList.add('on');
@@ -836,6 +895,7 @@ function go(v){
   if(v==='tsk')loadTsk();
   if(v==='prj')loadPrj();
   if(v==='hist')loadHistList();
+  if(v==='team'){ checkTeamChatEnabled(); }
 }
 
 // LOAD DATA
@@ -1599,6 +1659,9 @@ document.addEventListener('keydown', ev=>{ if(ev.key==='Escape') closeDetail(); 
 
 // ─── USER MAP ────────────────────────────────────────
 async function autoPreload(){
+  // Small delay to ensure C.token is fully set
+  await new Promise(r=>setTimeout(r,300));
+  if(!C.token || !C.tdb){ return; }
   // Load tasks and projects silently to build USER_MAP
   try{
     const [t,p] = await Promise.all([
@@ -1645,6 +1708,200 @@ function buildPeopleField(name){
   if(uid) return {people:[{object:'user',id:uid}]};
   return null; // can't set people without valid user ID
 }
+
+
+// ─── TEAM SHARED CHAT ─────────────────────────────────
+let TC_ENABLED = false;
+let TC_LAST_ID = '';
+let TC_POLL_TIMER = null;
+let TC_MEMBER = '';
+
+function initTeamChat(){
+  const saved = localStorage.getItem('tc_member');
+  if(saved){
+    TC_MEMBER = saved;
+    // Sync to sidebar
+    const sb = document.getElementById('memberName');
+    if(sb) sb.value = saved;
+    const av = document.getElementById('sbAvatar');
+    if(av) av.textContent = ini(saved);
+    // Sync to team chat input
+    const tc = document.getElementById('tcName');
+    if(tc) tc.value = saved;
+  }
+}
+
+function updateMemberName(val){
+  TC_MEMBER = val.trim();
+  localStorage.setItem('tc_member', TC_MEMBER);
+  // Update avatar initials
+  const av = document.getElementById('sbAvatar');
+  if(av) av.textContent = TC_MEMBER ? ini(TC_MEMBER) : '?';
+  // Sync to team chat name input
+  const tc = document.getElementById('tcName');
+  if(tc) tc.value = TC_MEMBER;
+}
+
+async function checkTeamChatEnabled(){
+  try{
+    const r = await fetch(C.proxy+'/api/team_chat/config');
+    const d = await r.json();
+    TC_ENABLED = d.enabled;
+    const st = document.getElementById('tcStatus');
+    const info = document.getElementById('tcInfo');
+    const live = document.getElementById('tcLive');
+    if(TC_ENABLED){
+      if(st) st.textContent='';
+      if(info) info.style.display='none';
+      if(live) live.style.display='flex';
+      loadTeamChat();
+      startTeamPoll();
+    } else {
+      if(st) st.textContent='Chưa bật';
+    }
+  }catch(e){}
+}
+
+async function loadTeamChat(){
+  if(!TC_ENABLED) return;
+  try{
+    const r = await fetch(C.proxy+'/api/team_chat/list');
+    const d = await r.json();
+    renderTeamMsgs(d.messages||[], true);
+    if(d.messages && d.messages.length){
+      TC_LAST_ID = d.messages[d.messages.length-1].id;
+    }
+  }catch(e){}
+}
+
+async function pollTeamChat(){
+  if(!TC_ENABLED) return;
+  try{
+    const url = C.proxy+'/api/team_chat/list'+(TC_LAST_ID ? '?since='+TC_LAST_ID : '');
+    const r = await fetch(url);
+    const d = await r.json();
+    if(d.messages && d.messages.length){
+      appendTeamMsgs(d.messages);
+      TC_LAST_ID = d.messages[d.messages.length-1].id;
+    }
+  }catch(e){}
+}
+
+function startTeamPoll(){
+  if(TC_POLL_TIMER) clearInterval(TC_POLL_TIMER);
+  TC_POLL_TIMER = setInterval(pollTeamChat, 5000);
+}
+
+function stopTeamPoll(){
+  if(TC_POLL_TIMER){ clearInterval(TC_POLL_TIMER); TC_POLL_TIMER=null; }
+}
+
+function renderTeamMsgs(msgs, scrollBottom){
+  const el = document.getElementById('tcMsgs');
+  if(!msgs.length){ el.innerHTML='<div class="em">Chưa có tin nhắn nào</div>'; return; }
+  el.innerHTML = msgs.map(m=>tcMsgHtml(m)).join('');
+  if(scrollBottom) el.scrollTop = el.scrollHeight;
+}
+
+function appendTeamMsgs(msgs){
+  const el = document.getElementById('tcMsgs');
+  // Remove empty placeholder
+  const placeholder = el.querySelector('.em');
+  if(placeholder) placeholder.remove();
+  msgs.forEach(m=>{
+    const d = document.createElement('div');
+    d.innerHTML = tcMsgHtml(m);
+    el.appendChild(d.firstChild);
+  });
+  el.scrollTop = el.scrollHeight;
+}
+
+function tcMsgHtml(m){
+  const isAI = m.role === 'ai';
+  const av = isAI ? '👁' : ini(m.member||'?');
+  const avBg = isAI ? '' : 'background:var(--sf3);border:1px solid var(--br2)';
+  const txt = (m.content||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  const meta = (m.member ? m.member+' · ' : '') + (m.time||'').replace('T',' ').slice(0,16);
+  return '<div class="tc-msg '+(isAI?'ai':'user')+'">' +
+    '<div class="tc-av" style="'+avBg+'">'+av+'</div>' +
+    '<div>' +
+      '<div class="tc-bubble">'+txt+'</div>' +
+      '<div class="tc-meta">'+meta+'</div>' +
+    '</div>' +
+  '</div>';
+}
+
+async function sendTeamMsg(){
+  if(!TC_ENABLED){ toast('Team Chat chưa được bật','er'); return; }
+  const inpEl = document.getElementById('tcInp');
+  const name = TC_MEMBER || localStorage.getItem('tc_member') || '';
+  const text = inpEl.value.trim();
+  if(!name){ 
+    toast('Nhập tên của bạn ở sidebar trước','er'); 
+    document.getElementById('memberName')?.focus(); 
+    return; 
+  }
+  if(!text) return;
+
+  TC_MEMBER = name;
+  inpEl.value = '';
+
+  // Optimistic UI
+  const tempMsg = {id:'temp',content:text,role:'user',member:name,time:new Date().toISOString().slice(0,16)};
+  appendTeamMsgs([tempMsg]);
+
+  try{
+    // 1. Save user message to Notion
+    await fetch(C.proxy+'/api/team_chat/post',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({content:text,role:'user',member:name})
+    });
+
+    // 2. Send to AI
+    H.push({role:'user',content:text});
+    const SYS = buildSys();
+    const res = await fetch(C.proxy+'/ai',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({system:SYS,messages:H.slice(-10)})
+    });
+    const raw = await res.json();
+    const reply = raw.content&&raw.content[0]?raw.content[0].text||'':'';
+    const displayReply = reply.replace(/```(?:json)?[\s\S]*?```/g,'').trim()||'✓';
+    H.push({role:'assistant',content:reply});
+
+    // 3. Save AI reply to Notion
+    await fetch(C.proxy+'/api/team_chat/post',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({content:displayReply,role:'ai',member:'AI'})
+    });
+
+    // 4. Execute any action
+    const jm = reply.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if(jm){ try{ await execAct(JSON.parse(jm[1].trim()),null); }catch(e){} }
+
+    // 5. Refresh to get server-confirmed messages
+    setTimeout(loadTeamChat, 500);
+  }catch(e){
+    toast('Lỗi: '+e.message,'er');
+  }
+}
+
+function buildSys(){
+  const taskCtx = buildTaskContext();
+  const projCtx = buildProjContext();
+  return 'Ban la AI assistant team Circle Tribe Idle (4 nguoi).\n' +
+    'Hom nay: '+TODAY()+'\n\n' +
+    '=== TASKS ===\n'+taskCtx+'\n\n' +
+    (projCtx?'=== PROJECTS ===\n'+projCtx+'\n\n':'') +
+    'Tra loi tieng Viet ngan gon. Thuc hien action khi duoc yeu cau.';
+}
+
+document.addEventListener('keydown',ev=>{
+  const inp = document.getElementById('tcInp');
+  if(document.activeElement===inp && ev.key==='Enter' && !ev.shiftKey){
+    ev.preventDefault(); sendTeamMsg();
+  }
+});
 
 function showLd(t){document.getElementById('ldov').className='ld on';document.getElementById('ltxt').textContent=t;}
 function hideLd(){document.getElementById('ldov').className='ld';}

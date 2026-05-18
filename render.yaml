@@ -11,3 +11,5 @@ services:
         sync: false
       - key: CHAT_DB_ID
         sync: false
+      - key: TEAM_CHAT_DB_ID
+        sync: false
