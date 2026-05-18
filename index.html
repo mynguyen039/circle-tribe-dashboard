@@ -625,8 +625,8 @@ async function testConn(){
       await detectSchema();
       autoPreload();
       initTeamChat();
-      // Check team chat availability silently
-      if(isRender()) checkTeamChatEnabled();
+      // Always start team feed polling - works if TEAM_CHAT_DB_ID is set
+      checkTeamChatEnabled();
       loadRep();
     }
   }catch(e){toast('Lỗi kết nối: '+e.message,'er');}
@@ -987,11 +987,24 @@ function addTyp(){
 // Build compact task list for AI context
 function buildTaskContext(){
   const tasks = ALL_TSK.length ? ALL_TSK : ALL_REP;
-  if(!tasks.length) return 'Chưa có dữ liệu tasks. Người dùng cần vào Daily Report hoặc All Tasks để load dữ liệu trước.';
-  return tasks.slice(0,80).map(p=>{
-    const nm=gTitle(p),ow=gOwner(p),du=gDue(p),st=gStatus(p),pri=gp(p,'Priority','priority');
-    return `- "${nm}" | owner:${ow||'?'} | status:${st||'?'} | due:${du||'none'} | priority:${pri||'none'}`;
-  }).join('\n');
+  if(!tasks.length) return 'Chua co du lieu tasks.';
+  // Group by status for cleaner AI filtering
+  const inProg=[], notStart=[], done=[], other=[];
+  tasks.forEach(p=>{
+    const nm=gTitle(p),ow=gOwner(p),du=gDue(p),st=gStatus(p)||'',pri=gp(p,'Priority','priority');
+    const line = `  - [${p.id}] "${nm}" | owner:${ow||'?'} | due:${du||'none'} | priority:${pri||'none'}`;
+    const sl = st.toLowerCase();
+    if(sl.includes('done')||sl.includes('complete')) done.push(line);
+    else if(sl.includes('progress')||sl.includes('doing')) inProg.push(line);
+    else if(sl.includes('not started')||sl.includes('todo')||!sl) notStart.push(line);
+    else other.push(line+'| status:'+st);
+  });
+  let out = '';
+  if(inProg.length) out += 'IN PROGRESS ('+inProg.length+'):\n'+inProg.join('\n')+'\n';
+  if(notStart.length) out += 'NOT STARTED ('+notStart.length+'):\n'+notStart.slice(0,30).join('\n')+'\n';
+  if(other.length) out += 'OTHER STATUS:\n'+other.join('\n')+'\n';
+  if(done.length) out += 'DONE ('+done.length+' tasks, list omitted for brevity)\n';
+  return out || 'Khong co task.';
 }
 
 function buildProjContext(){
@@ -1026,395 +1039,23 @@ async function send(){
   const SYS =
     'Ban la AI assistant quan ly cong viec team Circle Tribe Idle (4 nguoi).\n' +
     'Hom nay: ' + TODAY() + '\n\n' +
-    '=== DU LIEU TASKS ===\n' + taskCtx + '\n\n' +
-    (projCtx ? '=== DU LIEU PROJECTS ===\n' + projCtx + '\n\n' : '') +
-    '=== QUAN TRONG: QUY TAC TRO LY ===\n' +
-    '1. Chi hoi them neu THIEU THONG TIN QUAN TRONG (ten task/project). Du thong tin thi THUC HIEN NGAY.\n' +
-    '2. Khi thuc hien action, tra JSON trong code block ```json...```, KHONG co them text giai thich dai dong.\n' +
-    '3. Sau JSON, chi can 1 dong xac nhan ngan gon. Khong hoi "ban co muon..." khi da du thong tin.\n' +
-    '4. Khi liet ke tasks, LUON dung action list_tasks voi id chinh xac tu du lieu.\n\n' +
-    '=== ACTIONS ===\n' +
-    'Liet ke tasks: ```json\n{"action":"list_tasks","items":[{"id":"ID_CHINH_XAC","name":"ten task","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
-    'QUAN TRONG: Khi hoi ve tasks/projects cua 1 nguoi, LUON tra ca task va project cua nguoi do.\n' +
-    'Dung 2 JSON block lien tiep, 1 cho tasks va 1 cho projects neu co.\n' +
-    'Liet ke projects: ```json\n{"action":"list_projects","items":[{"id":"ID_CHINH_XAC","name":"ten project","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
-    'LUU Y: id PHAI la UUID chinh xac tu du lieu, KHONG dung ten. Neu khong co UUID thi dung ten de app tu resolve.\n' +
-    'Tao task: ```json\n{"action":"create_task","name":"...","assignee":"...","due":"YYYY-MM-DD","status":"Not started","priority":"High/Mid/Low"}\n```\n' +
+    '=== TASKS THEO STATUS ===\n' + taskCtx + '\n' +
+    (projCtx ? '=== PROJECTS ===\n' + projCtx + '\n\n' : '') +
+    'QUY TAC LOC TASK:\n' +
+    '- "dang lam / in progress / task hom nay": chi lay task trong section IN PROGRESS, KHONG lay DONE\n' +
+    '- "task chua lam / not started": chi lay task trong section NOT STARTED\n' +
+    '- "task xong / done": lay task trong section DONE\n' +
+    '- "tat ca task": lay tat ca sections\n' +
+    'TUYET DOI khong tra task DONE khi nguoi dung hoi task "dang lam" hoac "in progress"\n\n' +
+    'ACTIONS (dung JSON trong ```json...```):\n' +
+    'Liet ke tasks: ```json\n{"action":"list_tasks","items":[{"id":"UUID_TU_DU_LIEU","name":"...","owner":"...","status":"...","due":"YYYY-MM-DD"}]}\n```\n' +
+    'Liet ke projects: ```json\n{"action":"list_projects","items":[{"id":"UUID","name":"...","owner":"...","status":"...","due":"..."}]}\n```\n' +
+    'Khi hoi ve tasks/projects cua 1 nguoi, tra ca 2 block neu co du lieu.\n' +
+    'Tao task: ```json\n{"action":"create_task","name":"...","assignee":"...","due":"YYYY-MM-DD","status":"Not started"}\n```\n' +
     'Tao project: ```json\n{"action":"create_project","name":"...","assignee":"...","end":"YYYY-MM-DD","status":"In progress"}\n```\n' +
-    'Cap nhat task: ```json\n{"action":"update_task","id":"ID_CHINH_XAC","status":"...","assignee":"...","due":"YYYY-MM-DD"}\n```\n' +
-    'Cap nhat project: ```json\n{"action":"update_project","id":"ID_CHINH_XAC","status":"...","assignee":"...","end":"YYYY-MM-DD"}\n```\n' +
-    'Update nhieu: ```json\n{"action":"update_batch","updates":[{"id":"...","status":"..."}]}\n```\n\n' +
-    'Viet tat duoc chap nhan: deadline/due/end=due, giao/assign/owner=assignee, uu tien=priority\n' +
-    'Tra loi tieng Viet ngan gon. Thuc hien truoc, giai thich sau.'
-  try{
-    const res=await fetch(C.proxy+'/ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:SYS,messages:H.slice(-10)})});
-    const raw=await res.json();
-    console.log('AI raw:',JSON.stringify(raw).slice(0,200));
-    const reply=raw.content?.[0]?.text||raw.error||'Không có phản hồi';
-    document.getElementById('typ')?.remove();
-    H.push({role:'assistant',content:reply}); checkAutoSave();
-    // Extract ALL JSON blocks from reply
-    let disp = reply;
-    let parsedActs = [];
-
-    // Find all ```json...``` blocks
-    const allBlocks = [...reply.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
-    if(allBlocks.length){
-      for(const m of allBlocks){
-        try{ parsedActs.push(JSON.parse(m[1].trim())); }catch(e){}
-      }
-      disp = reply.replace(/```(?:json)?[\s\S]*?```/g,'').trim();
-    }
-    // Fallback: try raw JSON if no code blocks
-    if(!parsedActs.length){
-      const rawMatch = reply.match(/(\{[\s\S]*?"action"[\s\S]*?\})/);
-      if(rawMatch){ try{ parsedActs.push(JSON.parse(rawMatch[1])); disp=reply.replace(rawMatch[1],'').trim(); }catch(e){} }
-    }
-    // Legacy compat
-    const parsedAct = parsedActs[0] || null;
-    // Try raw JSON object/array if no code block matched
-    if(!parsedAct){
-      const rawMatch = reply.match(/(\{[\s\S]*"action"[\s\S]*\})/);
-      if(rawMatch){
-        try{ parsedAct = JSON.parse(rawMatch[1]); }catch(e){}
-        if(parsedAct) disp = reply.replace(rawMatch[1],'').trim();
-      }
-    }
-
-    let extraHtml='';
-
-    // TEXT FALLBACK: If AI says "da tao" but no JSON returned, extract and execute
-    if(!parsedAct){
-      const lr = reply.toLowerCase();
-      const hasProj = ['tao project','tạo project','da tao project','đã tạo project','create project'].some(k=>lr.includes(k));
-      if(hasProj){
-        const qm = reply.match(/[""\u201c\u201d]([^""\u201c\u201d]+)[""\u201c\u201d]/);
-        const nm = qm ? qm[1] : (reply.match(/project[:\s]+([^,\n"]{3,50})/i)||[])[1];
-        if(nm){
-          const dm = (reply.match(/(\d{4}-\d{2}-\d{2})/))||[];
-          const am = (reply.match(/(?:cho|giao|assign[a-z]*)[:\s]+([A-Za-z\u00C0-\u024F\u1E00-\u1EFF]+)/i)||[]);
-          parsedAct = {action:'create_project',name:nm.trim(),end:dm[1]||null,assignee:am[1]||null,status:'In progress'};
-          console.log('Text fallback create_project:', JSON.stringify(parsedAct));
-        }
-      }
-      if(!parsedAct){
-        const hasTask = ['tao task','tạo task','da tao task','đã tạo task'].some(k=>lr.includes(k));
-        if(hasTask){
-          const qm2 = reply.match(/[""\u201c\u201d]([^""\u201c\u201d]+)[""\u201c\u201d]/);
-          const nm2 = qm2 ? qm2[1] : (reply.match(/task[:\s]+([^,\n"]{3,50})/i)||[])[1];
-          if(nm2){
-            const dm2 = (reply.match(/(\d{4}-\d{2}-\d{2})/))||[];
-            const am2 = (reply.match(/(?:cho|giao|assign[a-z]*)[:\s]+([A-Za-z\u00C0-\u024F\u1E00-\u1EFF]+)/i)||[]);
-            parsedAct = {action:'create_task',name:nm2.trim(),due:dm2[1]||null,assignee:am2[1]||null,status:'Not started'};
-          }
-        }
-      }
-    }
-
-    // Execute all JSON blocks (e.g. list_tasks + list_projects both)
-    if(parsedActs.length){
-      for(const act of parsedActs){
-        try{ await execAct(act, (html)=>{ extraHtml += html; }); }catch(e){ console.error('execAct:',e); }
-      }
-    }
-
-    let finalText = disp || '✓';
-    finalText = finalText.replace(/(\{[\s\S]*?"action"[\s\S]*?\})/g,'').trim() || '✓';
-    finalText = finalText.replace(/\*\*(.*?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
-    addM('ai', finalText + extraHtml);
-    // Mirror activity to Team Chat feed (non-blocking)
-    mirrorToTeamChat(txt, finalText).catch(()=>{}); // mirror all AI chat to team feed
-  }catch(e){document.getElementById('typ')?.remove();addM('ai','❌ '+e.message);}
-  document.getElementById('bsn').disabled=false;
-}
-// Update a Notion page via proxy
-async function updatePage(pageId, fields){
-  // Build Notion properties from simple fields object
-  const props = {};
-  if(fields.status)   props['Status']   = {status:{name:fields.status}};
-  if(fields.due)      props['Due date'] = {date:{start:fields.due}};
-  if(fields.priority) props['Priority'] = {select:{name:fields.priority}};
-  // Assignee: try rich_text (most compatible without user lookup)
-  if(fields.assignee){
-    const pf = buildPeopleField(fields.assignee);
-    if(pf) props['Assignee'] = pf;
-  }
-
-  const data = await nPatch('/pages/'+pageId, {properties:props});
-  if(!data.id) throw new Error(data.message||'Update failed');
-  return data;
-}
-
-// Find page by name (fuzzy) in cached data
-function findPageByName(name){
-  const lower = name.toLowerCase();
-  const all = [...ALL_TSK,...ALL_PRJ,...ALL_REP];
-  let found = all.find(p=>gTitle(p).toLowerCase()===lower);
-  if(!found) found = all.find(p=>gTitle(p).toLowerCase().includes(lower));
-  if(!found) found = all.find(p=>lower.includes(gTitle(p).toLowerCase().replace(/[^a-z0-9]/g,' ').trim().slice(0,10)));
-  return found||null;
-}
-
-// Resolve ID: if it looks like a UUID use it directly, otherwise find by name
-function resolvePageId(idOrName){
-  if(!idOrName) return null;
-  // UUID pattern: 8-4-4-4-12 hex or 32 hex chars
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const hex32  = /^[0-9a-f]{32}$/i;
-  if(uuidRe.test(idOrName.trim()) || hex32.test(idOrName.replace(/-/g,'').trim())){
-    return idOrName.trim(); // Already a valid ID
-  }
-  // It's a name — look up
-  const page = findPageByName(idOrName);
-  if(page) return page.id;
-  console.warn('resolvePageId: could not find page for:', idOrName);
-  return null;
-}
-
-async function execAct(act, cb){
-  // LIST TASKS — render clickable rows in chat
-  // LIST PROJECTS — same render as list_tasks
-  if(act.action==='list_projects' && act.items?.length){
-    act.action = 'list_tasks'; // reuse same render logic
-  }
-
-  if(act.action==='list_tasks' && act.items?.length){
-    const html = act.items.map(item=>{
-      const pid = resolvePageId(item.id||'');
-      if(!pid && !item.name) return ''; // skip invalid
-
-      // Lookup full page from cache for accurate data
-      const cachedPage = pid ? [...ALL_TSK,...ALL_PRJ,...ALL_REP].find(p=>p.id===pid) : null;
-
-      // Use cached data if available, fallback to item fields
-      const nm  = (cachedPage ? gTitle(cachedPage) : '') || item.name || item.title || '';
-      const st  = (cachedPage ? gStatus(cachedPage) : '') || item.status || '';
-      const own = (cachedPage ? gOwner(cachedPage) : '') || item.owner || '';
-      const du  = (cachedPage ? gDue(cachedPage) : '') || item.due || '';
-
-      const isDone=/done|complete/i.test(st);
-      const lt=!isDone&&isLate(du);
-      const td=!isDone&&isTdy(du);
-
-      // Register in ALL_TSK so detail panel can find it
-      const finalId = pid || item.id || '';
-      if(finalId && !cachedPage){
-        ALL_TSK.push({id:finalId,created_time:'',properties:{
-          [TTL_KEY]:{type:'title',title:[{plain_text:nm}]},
-          'Status':{type:'status',status:{name:st}},
-          'Assignee':{type:'people',people:[{name:own}]},
-          'Due date':{type:'date',date:du?{start:du}:null}
-        }});
-      }
-      return `<div style="display:grid;grid-template-columns:8px 1fr 130px 100px;gap:8px;align-items:center;
-        padding:7px 10px;background:var(--sf3);border:1px solid var(--br);border-radius:5px;
-        margin-bottom:3px;cursor:pointer" onclick="openDetail(event,'${finalId}')">
-        <div style="width:8px;height:8px;border-radius:50%;background:${scC(st)};flex-shrink:0"></div>
-        <div style="color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${nm||'?'}</div>
-        <div style="display:flex;align-items:center;gap:5px">
-          <div style="width:20px;height:20px;border-radius:50%;background:var(--sf2);border:1px solid var(--br2);
-            display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--gd);font-weight:700;flex-shrink:0">
-            ${ini(own)}</div>
-          <span style="font-size:12px;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${own||'—'}</span>
-        </div>
-        <span style="font-size:10px;padding:3px 7px;border-radius:3px;${stBg(st)};white-space:nowrap">${st||'—'}</span>
-      </div>`;
-    }).join('');
-    if(cb) cb(`<div style="margin-top:6px">${html}</div>`);
-    return;
-  }
-
-  // UPDATE TASK / PROJECT
-  if(act.action==='update_task'){
-    const pid = resolvePageId(act.id||act.name||'');
-    if(!pid){ toast('Không tìm được task: '+(act.id||act.name||'?'),'er'); return; }
-    try{
-      const fields = {};
-      if(act.assignee) fields.assignee = act.assignee;
-      if(act.due)      fields.due      = act.due;
-      if(act.status)   fields.status   = act.status;
-      if(act.priority) fields.priority = act.priority;
-      if(!Object.keys(fields).length){ toast('Không có gì để update','er'); return; }
-
-      // Check existing values - only update empty fields unless explicitly forced
-      const page = [...ALL_TSK,...ALL_PRJ,...ALL_REP].find(p=>p.id===pid||p.id===pid.replace(/-/g,''));
-      const finalFields = {};
-      if(fields.assignee){
-        const curOwner = page ? gOwner(page) : '';
-        if(!curOwner || act.force) finalFields.assignee = fields.assignee;
-        else if(act.assignee) finalFields.assignee = fields.assignee; // always update if specified
-      }
-      if(fields.due){
-        const curDue = page ? gDue(page) : '';
-        finalFields.due = fields.due; // always update due if specified
-      }
-      if(fields.status) finalFields.status = fields.status;
-      if(fields.priority) finalFields.priority = fields.priority;
-
-      await updatePage(pid, finalFields);
-      const taskName = page ? gTitle(page) : pid;
-      const updated = Object.keys(finalFields).join(', ');
-      toast('✅ Đã update: '+taskName.slice(0,30)+' ('+updated+')','ok');
-      // Update local cache
-      if(page){
-        if(finalFields.assignee && page.properties?.['Assignee'])
-          page.properties['Assignee'] = {type:'rich_text',rich_text:[{plain_text:finalFields.assignee}]};
-        if(finalFields.status && page.properties?.['Status'])
-          page.properties['Status'] = {type:'status',status:{name:finalFields.status}};
-        if(finalFields.due && page.properties?.['Due date'])
-          page.properties['Due date'] = {type:'date',date:{start:finalFields.due}};
-      }
-      setTimeout(()=>{ if(ALL_TSK.length)loadTsk(); },600);
-    }catch(e){ toast('Lỗi update: '+e.message,'er'); }
-  }
-
-  // UPDATE PROJECT — same as update_task but supports project fields
-  if(act.action==='update_project'){
-    const pid = resolvePageId(act.id||act.name||'');
-    if(!pid){ toast('Không tìm được project: '+(act.id||act.name||'?'),'er'); return; }
-    try{
-      const props={};
-      // Status
-      if(act.status){ props['Status']={status:{name:act.status}}; }
-      // End date
-      const endDate = act.end||act.due||act.deadline||null;
-      if(endDate) props['End date']={date:{start:endDate}};
-      // Assignee (people field)
-      const who = act.assignee||act.lead||act.owner||null;
-      if(who){
-        const pf = buildPeopleField(who);
-        if(pf) props['Assignee']=pf;
-        else console.log('User not found for update_project:', who);
-      }
-      if(!Object.keys(props).length){ toast('Không có gì để update','er'); return; }
-      const result = await nPatch('/pages/'+pid, {properties:props});
-      if(result && result.id){
-        toast('✅ Đã update project','ok');
-        // Update local cache
-        const cached = ALL_PRJ.find(p=>p.id===pid||p.id===pid.replace(/-/g,''));
-        if(cached){
-          if(props['Status']) cached.properties['Status']={type:'status',status:{name:act.status}};
-          if(props['End date']) cached.properties['End date']={type:'date',date:{start:endDate}};
-        }
-        setTimeout(loadPrj, 400);
-      } else {
-        toast('Lỗi update: '+(result&&result.message||'unknown'),'er');
-      }
-    }catch(e){ toast('Lỗi update project: '+e.message,'er'); }
-  }
-
-  // UPDATE BATCH
-  if(act.action==='update_batch' && act.updates?.length){
-    let ok=0, fail=0;
-    for(const upd of act.updates){
-      try{
-        const fields={};
-        if(upd.assignee) fields.assignee=upd.assignee;
-        if(upd.due)      fields.due=upd.due;
-        if(upd.status)   fields.status=upd.status;
-        if(upd.priority) fields.priority=upd.priority;
-        const resolvedId = resolvePageId(upd.id||upd.name||'');
-        if(Object.keys(fields).length && resolvedId) await updatePage(resolvedId, fields);
-        ok++;
-      }catch(e){ fail++; }
-    }
-    toast('✅ Đã update '+ok+' tasks'+(fail?' ('+fail+' lỗi)':''),'ok');
-    setTimeout(()=>{ if(ALL_TSK.length)loadTsk(); },800);
-  }
-
-  // CREATE TASK
-  if(act.action==='create_task'){
-    try{
-      const props={};
-      props[TTL_KEY]={title:[{text:{content:act.name||'New Task'}}]};
-      if(act.status)props['Status']={status:{name:act.status}};
-      if(act.due)props['Due date']={date:{start:act.due}};
-      if(act.assignee){
-        const pf=buildPeopleField(act.assignee);
-        if(pf) props['Assignee']=pf;
-      }
-      await mkPg(C.tdb,props);
-      toast('✅ Đã tạo task: '+(act.name||''),'ok');
-      if(ALL_TSK.length) setTimeout(loadTsk,500);
-      if(cb) cb('<div style="margin-top:8px;padding:8px 10px;background:var(--sf3);border:1px solid var(--br);border-radius:5px;font-size:12px">'+
-        '<span style="color:var(--gr)">✅ Task đã tạo trên Notion</span>'+
-        '</div>');
-    }catch(e){toast('Lỗi tạo task: '+e.message,'er');}
-  }
-
-  // CREATE PROJECT
-  if(act.action==='create_project'){
-    if(!C.pdb){ toast('Chua co Projects DB ID','er'); return; }
-    try{
-      const props={};
-      const projName = act.name||'New Project';
-      props['Project name']={title:[{text:{content:projName}}]};
-      if(act.status){ props['Status']={status:{name:act.status}}; }
-      const endDate = act.end||act.due||act.deadline||null;
-      if(endDate) props['End date']={date:{start:endDate}};
-      const who = act.assignee||act.lead||act.owner||null;
-      if(who){
-        const pf = buildPeopleField(who);
-        if(pf){ props['Assignee'] = pf; console.log('Assignee user found:', who); }
-        else { console.log('Assignee user not found in USER_MAP:', who, 'Map:', JSON.stringify(USER_MAP)); }
-      }
-      console.log('Creating project with props:', JSON.stringify(props));
-      const result = await mkPg(C.pdb, props);
-      console.log('Project created:', result && result.id);
-      if(result && result.id){
-        ALL_PRJ.unshift(result);
-        const notionUrl = 'https://notion.so/'+result.id.replace(/-/g,'');
-        toast('✅ Project đã tạo: '+projName,'ok');
-        console.log('Project created in Notion:', notionUrl);
-        setTimeout(loadPrj, 400);
-        // Inject confirmation HTML if callback exists
-        if(cb) cb('<div style="margin-top:8px;padding:8px 10px;background:var(--sf3);border:1px solid var(--br);border-radius:5px;font-size:12px">'+
-          '<span style="color:var(--gr)">✅ Đã tạo project trên Notion:</span><br>'+
-          '<b style="color:var(--tx)">'+projName+'</b>'+
-          (who?'<br><span style="color:var(--tx3)">Assignee: '+who+'</span>':'')+
-          (endDate?'<br><span style="color:var(--tx3)">End date: '+endDate+'</span>':'')+
-          '</div>');
-      } else {
-        toast('Lỗi tạo project: '+(result && result.message||'unknown'),'er');
-      }
-    }catch(e){
-      console.error('create_project error:',e);
-      toast('Loi tao project: '+e.message,'er');
-    }
-  }
-}
-
-
-// ─── CHAT HISTORY ────────────────────────────────────
-let CHAT_DB_ID_LOCAL = '';
-
-function saveChatDbId(){
-  const v = document.getElementById('chatDbId').value.trim().replace(/-/g,'');
-  CHAT_DB_ID_LOCAL = v;
-  sessionStorage.setItem('chatDbId', v);
-  if(v.length >= 32) loadHistList();
-}
-
-function initChatHistory(serverChatDbId){
-  // Use server env var first, then sessionStorage
-  const saved = serverChatDbId || sessionStorage.getItem('chatDbId') || '';
-  if(saved){
-    CHAT_DB_ID_LOCAL = saved;
-    sessionStorage.setItem('chatDbId', saved);
-    const el = document.getElementById('chatDbId');
-    if(el) el.value = saved;
-    // Hide setup section if DB ID is known
-    const setup = document.getElementById('histSetup');
-    if(setup && saved) setup.style.display = 'none';
-  }
-}
-
-async function loadHistList(){
-  if(!CHAT_DB_ID_LOCAL){ 
-    document.getElementById('histList').innerHTML='<div class="em">Cần nhập Chat History DB ID</div>';
-    return;
-  }
-  document.getElementById('histList').innerHTML='<div class="em">Đang tải...</div>';
+    'Cap nhat task: ```json\n{"action":"update_task","id":"UUID","status":"...","assignee":"...","due":"..."}\n```\n' +
+    'Cap nhat project: ```json\n{"action":"update_project","id":"UUID","status":"...","assignee":"...","end":"..."}\n```\n\n' +
+    'Tra loi tieng Viet ngan gon. Thuc hien action truoc, giai thich sau.'
   try{
     const r = await fetch(C.proxy+'/api/chat/list?db_id='+CHAT_DB_ID_LOCAL);
     const data = await r.json();
@@ -1836,18 +1477,19 @@ async function checkTeamChatEnabled(){
       if(st) st.textContent='';
       if(info) info.style.display='none';
       if(live){ live.style.display='flex'; }
-      loadTeamChat();
-      startTeamPoll();
     } else {
-      if(st) st.textContent='Chưa set TEAM_CHAT_DB_ID';
+      if(st) st.textContent='Cần set TEAM_CHAT_DB_ID';
     }
+    // Always load and poll (graceful no-op if DB not configured)
+    loadTeamChat();
+    startTeamPoll();
   }catch(e){}
 }
 
 
 
 async function loadTeamChat(){
-  if(!TC_ENABLED) return;
+  // Load regardless - fails gracefully if not configured
   try{
     const r = await fetch(C.proxy+'/api/team_chat/list');
     const d = await r.json();
@@ -1859,7 +1501,7 @@ async function loadTeamChat(){
 }
 
 async function pollTeamChat(){
-  if(!TC_ENABLED) return;
+  // Poll regardless of TC_ENABLED - just fail silently if not configured
   try{
     const url = C.proxy+'/api/team_chat/list'+(TC_LAST_ID ? '?since='+TC_LAST_ID : '');
     const r = await fetch(url);
